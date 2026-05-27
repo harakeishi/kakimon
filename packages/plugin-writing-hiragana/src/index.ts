@@ -17,11 +17,30 @@ import { validateManifest } from "@kakimon/plugin-api";
 // kakitori のデフォルトは unpkg を直接叩くため、PWA 設計に反する。
 // host 側で scripts/sync-kakitori-data.mjs が public/kakitori/ を作る前提。
 function baseUrl(): string {
-  // import.meta.env は Vite 提供。プラグインは Vite で処理される workspace
-  // source-only パッケージのためそのまま参照できる。
   const base =
     (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/";
   return base.endsWith("/") ? base : `${base}/`;
+}
+
+const FETCH_TIMEOUT_MS = 3000;
+
+function fetchJson<T = unknown>(url: string): Promise<T | "not-found"> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  return fetch(url, { signal: controller.signal })
+    .then(async (res) => {
+      if (res.status === 404) return "not-found" as const;
+      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+      // SPA の navigation fallback で index.html を 200 で返されるケースを弾く。
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("json")) {
+        throw new Error(
+          `expected JSON for ${url} but got '${contentType.slice(0, 60)}'`
+        );
+      }
+      return (await res.json()) as T;
+    })
+    .finally(() => clearTimeout(timer));
 }
 
 const charDataLoader: NonNullable<CharCreateOptions["charDataLoader"]> = (
@@ -29,32 +48,39 @@ const charDataLoader: NonNullable<CharCreateOptions["charDataLoader"]> = (
   onLoad,
   onError
 ) => {
-  fetch(`${baseUrl()}kakitori/chars/${encodeURIComponent(c)}.json`)
-    .then((res) => {
-      if (!res.ok) throw new Error(`http ${res.status}`);
-      return res.json();
+  fetchJson<{ strokes: string[]; medians: number[][][] }>(
+    `${baseUrl()}kakitori/chars/${encodeURIComponent(c)}.json`
+  )
+    .then((data) => {
+      if (data === "not-found") {
+        onError(new Error(`char data not found: ${c}`));
+        return;
+      }
+      // onLoad 自身の例外を .catch(onError) に流すと
+      // 「成功と失敗が両方ディスパッチされる」二重通知になる。
+      // setTimeout で別タスクに切ってチェーンから切り離す。
+      setTimeout(() => onLoad(data), 0);
     })
-    .then((data) => onLoad(data))
     .catch((err) => onError(err));
 };
 
 const configLoader: NonNullable<CharCreateOptions["configLoader"]> = async (
   c
 ): Promise<CharacterConfig | null> => {
-  try {
-    const res = await fetch(
-      `${baseUrl()}kakitori/config/${encodeURIComponent(c)}.json`
-    );
-    if (res.status === 404) return null;
-    if (!res.ok) throw new Error(`http ${res.status}`);
-    return (await res.json()) as CharacterConfig;
-  } catch {
-    return null;
-  }
+  const data = await fetchJson<CharacterConfig>(
+    `${baseUrl()}kakitori/config/${encodeURIComponent(c)}.json`
+  ).catch((err) => {
+    // 通信・パースなど 404 以外のエラーはログに残しつつ null で先に進む。
+    // kakitori の default は throw するが、ここではプレイ続行を優先する。
+    console.warn("[plugin-writing-hiragana] config load failed:", err);
+    return "not-found" as const;
+  });
+  if (data === "not-found") return null;
+  return data;
 };
 
-// ひらがな清音 46 文字（kakitori の hiragana セットの先頭部分から、清音だけ取り出す）。
-// kakitori の `hiragana` には濁音・拗音も含まれる場合があるため、ここで清音だけ確定させる。
+// ひらがな清音 46 文字。kakitori の `hiragana` には濁音・拗音が含まれる場合があるため、
+// プラグイン側で清音だけに絞り込む。
 const SEION = [
   "あ","い","う","え","お",
   "か","き","く","け","こ",
@@ -68,7 +94,6 @@ const SEION = [
   "わ","を","ん",
 ] as const;
 
-// kakitori が提供する文字集合の中から、確実にレンダリングできるものに絞る。
 const KAKITORI_HIRAGANA = new Set<string>(hiragana);
 const RENDERABLE = SEION.filter((c) => KAKITORI_HIRAGANA.has(c));
 const POOL: readonly string[] =
@@ -88,14 +113,15 @@ const manifest: PluginManifest = {
   ],
 };
 
-validateManifest(manifest);
+// 注意: validateManifest はここで呼ばない。
+// プラグインの module init で throw すると、アプリ全体の起動が止まる。
+// 代わりに registry が登録時に検証する (validateManifest at registration time)。
 
 function pickQuestions(difficulty: string, count: number): string[] {
   const source =
     difficulty === "easy"
       ? POOL.slice(0, Math.min(POOL.length, 10))
       : [...POOL];
-  // シャッフル
   const arr = [...source];
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -116,7 +142,6 @@ function startSession(
   const questions = pickQuestions(config.difficulty, total);
   const outcomes: QuestionOutcome[] = [];
 
-  // ターゲットの DOM 構造を組み立てる
   target.innerHTML = "";
   target.classList.add("kakimon-plugin-writing-hiragana");
 
@@ -129,7 +154,6 @@ function startSession(
 
   const charHost = document.createElement("div");
   charHost.className = "kp-hiragana__char";
-  // 一辺 300px の正方形領域
   charHost.style.width = "300px";
   charHost.style.height = "300px";
   charHost.style.margin = "0 auto";
@@ -147,9 +171,19 @@ function startSession(
   let currentIndex = 0;
   let currentChar: ReturnType<typeof char.create> | null = null;
   let disposed = false;
+  let settled = false; // ctx.complete / abort を 1 度だけ呼ぶ guard
   let questionStartedAt = Date.now();
+  let pendingTimer: number | null = null;
+
+  function clearPendingTimer() {
+    if (pendingTimer !== null) {
+      window.clearTimeout(pendingTimer);
+      pendingTimer = null;
+    }
+  }
 
   function updateProgress() {
+    if (disposed) return;
     progressLabel.textContent = `${currentIndex + 1} / ${questions.length}`;
     ctx.reportProgress({
       ratio: currentIndex / questions.length,
@@ -157,16 +191,46 @@ function startSession(
     });
   }
 
+  function safeComplete() {
+    if (disposed || settled) return;
+    settled = true;
+    const overall =
+      outcomes.length > 0
+        ? outcomes.reduce((sum, o) => sum + o.score, 0) / outcomes.length
+        : 0;
+    try {
+      ctx.complete({
+        overallScore: overall,
+        outcomes,
+        durationMs: Date.now() - startedAt,
+      });
+    } catch (e) {
+      // ctx.complete 自体で host が例外を投げた場合、後始末を保証する
+      console.error("[plugin-writing-hiragana] ctx.complete threw:", e);
+    }
+  }
+
+  function safeAbort(reason: "user" | "error", detail?: string) {
+    if (disposed || settled) return;
+    settled = true;
+    try {
+      ctx.abort(reason, detail);
+    } catch (e) {
+      console.error("[plugin-writing-hiragana] ctx.abort threw:", e);
+    }
+  }
+
   function mountCurrent() {
     if (disposed) return;
     if (currentIndex >= questions.length) {
-      finishSession();
+      safeComplete();
       return;
     }
     updateProgress();
     questionStartedAt = Date.now();
 
     const ch = questions[currentIndex]!;
+    const myIndex = currentIndex;
     try {
       const instance = char.create(ch, {
         charDataLoader,
@@ -182,11 +246,16 @@ function startSession(
         outlineColor: "#cbd5e1",
         highlightColor: "#fbbf24",
         onComplete: (data) => {
+          // dispose 後に kakitori の内部キューが onComplete を発火することがある。
+          // settled なら無視。インデックスがズレている場合 (例: skip で進められた後)
+          // も無視。
+          if (disposed || settled) return;
+          if (myIndex !== currentIndex) return;
           const score = data.matched
             ? Math.max(0, 1 - data.totalMistakes * 0.1)
             : 0.3;
           outcomes.push({
-            questionId: `${ch}@${currentIndex}`,
+            questionId: `${ch}@${myIndex}`,
             correct: data.matched,
             score,
             elapsedMs: Date.now() - questionStartedAt,
@@ -196,8 +265,10 @@ function startSession(
               attempts: data.attempts,
             },
           });
-          // 少し演出を見せてから次の問題へ
-          window.setTimeout(() => {
+          clearPendingTimer();
+          pendingTimer = window.setTimeout(() => {
+            pendingTimer = null;
+            if (disposed) return;
             unmountCurrent();
             currentIndex++;
             mountCurrent();
@@ -206,10 +277,9 @@ function startSession(
       });
       instance.start();
     } catch (err) {
-      // kakitori がデータを持っていない文字などのフォールバック
       const elapsed = Date.now() - questionStartedAt;
       outcomes.push({
-        questionId: `${ch}@${currentIndex}`,
+        questionId: `${ch}@${myIndex}`,
         correct: false,
         score: 0,
         elapsedMs: elapsed,
@@ -232,21 +302,8 @@ function startSession(
     charHost.innerHTML = "";
   }
 
-  function finishSession() {
-    if (disposed) return;
-    const overall =
-      outcomes.length > 0
-        ? outcomes.reduce((sum, o) => sum + o.score, 0) / outcomes.length
-        : 0;
-    ctx.complete({
-      overallScore: overall,
-      outcomes,
-      durationMs: Date.now() - startedAt,
-    });
-  }
-
-  skipBtn.addEventListener("click", () => {
-    // スキップは「不正解」扱い（score 0）で次へ進む
+  function onSkipClick() {
+    if (disposed || settled) return;
     if (currentIndex < questions.length) {
       const ch = questions[currentIndex]!;
       outcomes.push({
@@ -257,18 +314,34 @@ function startSession(
         meta: { character: ch, skipped: true },
       });
     }
+    clearPendingTimer();
     unmountCurrent();
     currentIndex++;
     mountCurrent();
-  });
+  }
 
-  // 初回スタート
+  skipBtn.addEventListener("click", onSkipClick);
+
   mountCurrent();
 
   return {
     dispose() {
+      if (disposed) return;
       disposed = true;
+      clearPendingTimer();
+      skipBtn.removeEventListener("click", onSkipClick);
       unmountCurrent();
+      // 設計上は dispose() は host 側の都合 (画面切替・unmount) で呼ばれる。
+      // まだ settle していなければ "user" abort として通知し、host に
+      // 「セッションは未完了で放棄された」状態を渡す。
+      if (!settled) {
+        settled = true;
+        try {
+          ctx.abort("user", "session disposed before completion");
+        } catch (e) {
+          console.error("[plugin-writing-hiragana] dispose abort threw:", e);
+        }
+      }
       target.innerHTML = "";
     },
   };

@@ -93,14 +93,16 @@ const ONE_HOUR = 60 * 60 * 1000;
  * 放置時間に応じて Monster の状態を更新する純粋関数。
  * - hunger: 24 時間で 0 → 100
  * - cleanliness: 72 時間で 100 → 0
- * - mood: 168 時間 (1 週間) で 50 → 20 までゆっくり低下
- * - hp: sick 中のみ 24 時間で maxHp の 25% 減
+ * - mood: 168 時間 (1 週間) で 50 → 20 までゆっくり低下 (下限 20)
+ * - hp: sick / dying 中、24 時間で maxHp の 25% 減
  * - dying に入って 48 時間で deceased
  */
 export function tickMonster(m: Monster, nowMs: number): Monster {
   if (m.lifeState === "deceased") return m;
 
-  const lastMs = Date.parse(m.lastTickAt);
+  // 保存値が壊れていた場合 (NaN) は今を起点に再開し、tick の不整合伝播を防ぐ
+  const lastMsRaw = Date.parse(m.lastTickAt);
+  const lastMs = Number.isFinite(lastMsRaw) ? lastMsRaw : nowMs;
   const dtMs = Math.max(0, nowMs - lastMs);
   if (dtMs === 0) return m;
 
@@ -108,37 +110,43 @@ export function tickMonster(m: Monster, nowMs: number): Monster {
 
   const hunger = clamp(m.condition.hunger + (100 / 24) * dtH);
   const cleanliness = clamp(m.condition.cleanliness - (100 / 72) * dtH);
-  const mood = clamp(m.condition.mood - (30 / 168) * dtH);
+  // 設計上の最低値は 20。0 まで落とすと weak 判定の mood < 40 を実質常時通すことになる
+  const mood = clamp(m.condition.mood - (30 / 168) * dtH, 20, 100);
 
-  // 健康度遷移は段階的に判定する
   let lifeState: LifeState = m.lifeState;
   let hp = m.stats.hp;
   let dyingSince = m.dyingSince;
 
-  // sick 中は hp が減る
-  if (m.lifeState === "sick" || m.lifeState === "dying") {
-    const drain = (m.stats.maxHp * 0.25) * dtH / 24;
-    hp = Math.max(0, hp - drain);
-  }
-
-  // 状態判定 (悪化方向のみ。改善はお世話アクションで明示的に行う)
+  // 状態を悪化方向にだけ遷移させる。改善はお世話アクションで明示的に行う。
+  // 重要: 遷移後の lifeState で drain を判定する。原状で sick じゃなくても
+  // 今 tick で sick になったら hp を削る — そうしないと「長時間放置→sick 到達
+  // → でも hp 満タンのまま」という設計と乖離した状態に陥り dying に至らない。
   if (lifeState === "healthy" || lifeState === "weak") {
     if (hunger >= 60 || cleanliness <= 40 || mood < 40) {
       lifeState = "weak";
     }
-    // 12 時間以上 hunger >= 85、または 24 時間以上 cleanliness <= 20 で sick へ
-    // 簡易判定として、現在値が閾値を超えていて経過時間が長ければ sick へ。
     if (hunger >= 85 && dtH >= 12) lifeState = "sick";
     if (cleanliness <= 20 && dtH >= 24) lifeState = "sick";
   }
-  if (lifeState === "sick" && hp === 0) {
+  if (lifeState === "sick" || lifeState === "dying") {
+    const drain = ((m.stats.maxHp * 0.25) / 24) * dtH;
+    hp = Math.max(0, hp - drain);
+  }
+  // 浮動小数点比較は <= 0 にする (Math.max でクリップしても rounding 経路は別)
+  if (lifeState === "sick" && hp <= 0) {
     lifeState = "dying";
     dyingSince = new Date(nowMs).toISOString();
   }
   if (lifeState === "dying" && dyingSince) {
-    const dyingMs = nowMs - Date.parse(dyingSince);
-    if (dyingMs >= 48 * ONE_HOUR) {
-      lifeState = "deceased";
+    const dyingStartedRaw = Date.parse(dyingSince);
+    if (Number.isFinite(dyingStartedRaw)) {
+      const dyingMs = nowMs - dyingStartedRaw;
+      if (dyingMs >= 48 * ONE_HOUR) {
+        lifeState = "deceased";
+      }
+    } else {
+      // 壊れた dyingSince が来た場合は dying スタートをリセットして再記録する
+      dyingSince = new Date(nowMs).toISOString();
     }
   }
 

@@ -76,23 +76,42 @@ export interface ContentPlugin {
   ): SessionHandle;
 }
 
+const ALLOWED_LEVELS = new Set<DifficultyLevel>([1, 2, 3, 4, 5]);
+
 /**
- * マニフェスト検証。重複や必須欠落は起動時に明示的に失敗させる。
+ * マニフェスト検証。重複や必須欠落は登録時に明示的に失敗させる。
+ *
+ * 重要: プラグイン本体の module init 内では呼ばないこと。
+ * registry が登録時に呼ぶ。プラグインモジュールの load 中に throw すると
+ * import チェイン全体が壊れ、アプリ起動が止まる。
  */
 export function validateManifest(m: PluginManifest): void {
+  if (!m || typeof m !== "object") {
+    throw new Error("plugin manifest is required");
+  }
   if (!m.id || !/^[a-z0-9.\-_]+$/i.test(m.id)) {
     throw new Error(`invalid plugin id: ${String(m.id)}`);
   }
   if (!m.name) throw new Error(`plugin ${m.id}: name is required`);
   if (!m.version) throw new Error(`plugin ${m.id}: version is required`);
-  if (!m.difficulties.length) {
+  if (!Array.isArray(m.difficulties) || !m.difficulties.length) {
     throw new Error(`plugin ${m.id}: at least one difficulty is required`);
   }
   const seen = new Set<string>();
   for (const d of m.difficulties) {
+    if (!d || typeof d.key !== "string" || !d.key) {
+      throw new Error(`plugin ${m.id}: difficulty.key is required`);
+    }
     if (seen.has(d.key)) {
       throw new Error(`plugin ${m.id}: duplicate difficulty key ${d.key}`);
     }
     seen.add(d.key);
+    if (!ALLOWED_LEVELS.has(d.level)) {
+      throw new Error(
+        `plugin ${m.id}: difficulty ${d.key} has out-of-range level ${String(
+          d.level
+        )} (expected 1..5)`
+      );
+    }
   }
 }

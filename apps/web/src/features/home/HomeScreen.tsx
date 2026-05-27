@@ -62,11 +62,24 @@ export function HomeScreen() {
         </div>
         <div
           className="monster-art"
-          onClick={() => void petMonster()}
-          role="button"
-          aria-label={`${monster.name} を なでる`}
+          onClick={
+            monster.lifeState === "deceased" ? undefined : () => void petMonster()
+          }
+          role={monster.lifeState === "deceased" ? undefined : "button"}
+          aria-label={
+            monster.lifeState === "deceased"
+              ? `${monster.name} は おやすみちゅう`
+              : `${monster.name} を なでる`
+          }
+          style={
+            monster.lifeState === "deceased"
+              ? { opacity: 0.5, cursor: "default" }
+              : undefined
+          }
         >
-          {MONSTER_FACE_BY_STAGE[monster.stage]}
+          {monster.lifeState === "deceased"
+            ? "🌸"
+            : MONSTER_FACE_BY_STAGE[monster.stage]}
         </div>
       </section>
 
@@ -96,7 +109,11 @@ export function HomeScreen() {
         <Link to="/shop" className="btn btn--big">
           🛍 ショップ
         </Link>
-        <button className="btn btn--big btn--ghost" onClick={() => void petMonster()}>
+        <button
+          className="btn btn--big btn--ghost"
+          disabled={monster.lifeState === "deceased"}
+          onClick={() => void petMonster()}
+        >
           🤗 なでる
         </button>
       </section>
