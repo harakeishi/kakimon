@@ -4,6 +4,8 @@ import { useGameStore } from "../../state/gameStore";
 import { FOODS } from "../../domain/catalog/foods";
 import { countOf } from "../../domain/inventory";
 import type { Monster } from "../../domain/monster";
+import { EmojiIcon } from "../../components/EmojiIcon";
+import { MonsterSprite } from "../../components/MonsterSprite";
 
 const LIFE_STATE_LABELS: Record<Monster["lifeState"], string> = {
   healthy: "げんき",
@@ -11,14 +13,6 @@ const LIFE_STATE_LABELS: Record<Monster["lifeState"], string> = {
   sick: "ぐあいが わるい",
   dying: "あぶないよ！",
   deceased: "おやすみちゅう",
-};
-
-const MONSTER_FACE_BY_STAGE: Record<Monster["stage"], string> = {
-  egg: "🥚",
-  baby: "🐣",
-  child: "🐤",
-  teen: "🐥",
-  adult: "🐉",
 };
 
 export function HomeScreen() {
@@ -62,7 +56,7 @@ export function HomeScreen() {
 
       {isDeceased && (
         <div className="card center">
-          <div className="big-emoji">🌸</div>
+          <EmojiIcon emoji="🌸" size={64} alt="" />
           <h2 style={{ margin: "8px 0 4px" }}>
             {monster.name} は おやすみちゅう
           </h2>
@@ -75,7 +69,8 @@ export function HomeScreen() {
             className="btn btn--big btn--block btn--success"
             onClick={() => setConfirmRebirth(true)}
           >
-            🥚 あたらしい タマゴで はじめる
+            <EmojiIcon emoji="🥚" size={28} alt="" />
+            <span style={{ marginLeft: 8 }}>あたらしい タマゴで はじめる</span>
           </button>
           <p className="muted" style={{ fontSize: "0.8rem", marginBottom: 0 }}>
             コインと もちもの は そのまま のこるよ
@@ -89,24 +84,16 @@ export function HomeScreen() {
         </div>
         <div
           className="monster-art"
-          onClick={
-            monster.lifeState === "deceased" ? undefined : () => void petMonster()
-          }
-          role={monster.lifeState === "deceased" ? undefined : "button"}
+          onClick={isDeceased ? undefined : () => void petMonster()}
+          role={isDeceased ? undefined : "button"}
           aria-label={
-            monster.lifeState === "deceased"
+            isDeceased
               ? `${monster.name} は おやすみちゅう`
               : `${monster.name} を なでる`
           }
-          style={
-            monster.lifeState === "deceased"
-              ? { opacity: 0.5, cursor: "default" }
-              : undefined
-          }
+          style={isDeceased ? { cursor: "default" } : undefined}
         >
-          {monster.lifeState === "deceased"
-            ? "🌸"
-            : MONSTER_FACE_BY_STAGE[monster.stage]}
+          <MonsterSprite monster={monster} size={160} />
         </div>
       </section>
 
@@ -132,17 +119,20 @@ export function HomeScreen() {
           </section>
 
           <section className="actions-grid">
-            <Link to="/study" className="btn btn--big btn--secondary">
-              📚 べんきょう
+            <Link to="/study" className="btn btn--big btn--secondary action-btn">
+              <EmojiIcon emoji="📚" size={28} alt="" />
+              <span>べんきょう</span>
             </Link>
-            <Link to="/shop" className="btn btn--big">
-              🛍 ショップ
+            <Link to="/shop" className="btn btn--big action-btn">
+              <EmojiIcon emoji="🛍" size={28} alt="" />
+              <span>ショップ</span>
             </Link>
             <button
-              className="btn btn--big btn--ghost"
+              className="btn btn--big btn--ghost action-btn"
               onClick={() => void petMonster()}
             >
-              🤗 なでる
+              <EmojiIcon emoji="🤗" size={28} alt="" />
+              <span>なでる</span>
             </button>
           </section>
 
@@ -157,7 +147,7 @@ export function HomeScreen() {
                 return (
                   <div className="list-row" key={food.id}>
                     <div className="icon" aria-hidden>
-                      {food.icon}
+                      <EmojiIcon emoji={food.icon} size={36} alt="" />
                     </div>
                     <div>
                       <strong>{food.name}</strong>
@@ -181,7 +171,7 @@ export function HomeScreen() {
       {confirmRebirth && (
         <div className="modal-mask" onClick={() => setConfirmRebirth(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="big-emoji">🥚</div>
+            <EmojiIcon emoji="🥚" size={64} alt="" />
             <h2>あたらしい タマゴで はじめる？</h2>
             <p className="muted">
               {monster.name} は ずかんに のこるよ。

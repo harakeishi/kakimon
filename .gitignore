@@ -11,3 +11,5 @@ coverage
 !.env.example
 # kakitori のデータは scripts/sync-kakitori-data.mjs で都度同期する
 apps/web/public/kakitori/
+# openmoji の SVG は scripts/sync-emoji.mjs で都度同期する
+apps/web/public/emoji/

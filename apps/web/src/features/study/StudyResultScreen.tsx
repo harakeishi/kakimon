@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
+import { EmojiIcon } from "../../components/EmojiIcon";
 
 interface ResultState {
   pluginId: string;
@@ -40,7 +41,11 @@ export function StudyResultScreen() {
   return (
     <>
       <section className="card center">
-        <div className="big-emoji">{state.reward.wasDeceased ? "🌸" : "🎉"}</div>
+        <EmojiIcon
+          emoji={state.reward.wasDeceased ? "🌸" : "🎉"}
+          size={72}
+          alt=""
+        />
         <h1 style={{ margin: 0 }}>{cheer}</h1>
         <p className="muted">{state.pluginName} {state.questionCount}もん</p>
 
@@ -63,13 +68,25 @@ export function StudyResultScreen() {
         ) : (
           <div className="card" style={{ marginTop: 12 }}>
             <div style={{ fontSize: "1.1rem" }}>もらえたよ</div>
-            <div className="coin-pop">+{state.reward.coins} コイン</div>
+            <div
+              className="coin-pop row"
+              style={{ justifyContent: "center", gap: 6 }}
+            >
+              <EmojiIcon emoji="💰" size={28} alt="" />
+              <span>+{state.reward.coins} コイン</span>
+            </div>
             <div className="muted">けいけんち +{state.reward.exp}</div>
             {state.reward.leveledUp && (
               <div
-                style={{ marginTop: 10, color: "var(--good)", fontWeight: 700 }}
+                style={{
+                  marginTop: 10,
+                  color: "var(--good)",
+                  fontWeight: 700,
+                }}
+                className="row"
               >
-                ⭐️ レベルアップ！
+                <EmojiIcon emoji="⭐" size={20} alt="" />
+                <span style={{ marginLeft: 4 }}>レベルアップ！</span>
               </div>
             )}
           </div>

@@ -180,6 +180,19 @@ h3 {
   grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
 }
+/* アクションボタン: アイコンとラベルを縦並びに */
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-decoration: none;
+  padding: 12px 8px;
+}
+.action-btn span {
+  font-size: 0.95rem;
+}
 
 .bar {
   position: relative;

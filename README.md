@@ -20,6 +20,16 @@
 - [docs/05-ui-ux.md](docs/05-ui-ux.md) — UI/UX 設計
 - [docs/06-roadmap.md](docs/06-roadmap.md) — マイルストーン
 
+## クレジット
+
+- **書き取りエンジン**: [@k1low/kakitori](https://github.com/k1LoW/kakitori) (MIT)
+  と関連データパッケージ。
+- **モンスター・食べ物・UI アイコン**: [OpenMoji](https://openmoji.org/) (CC BY-SA 4.0)。
+  ひらがな書き取りで利用する文字データは [@k1low/hanzi-writer-data-jp](https://www.npmjs.com/package/@k1low/hanzi-writer-data-jp)
+  および [@k1low/kakitori-data](https://www.npmjs.com/package/@k1low/kakitori-data)
+  をビルド時にローカルへ同期して利用する (`scripts/sync-kakitori-data.mjs` /
+  `scripts/sync-emoji.mjs`)。
+
 ## ライセンス
 
 未定（実装着手時に決定）。

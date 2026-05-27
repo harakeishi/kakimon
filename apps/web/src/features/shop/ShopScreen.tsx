@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { FOODS } from "../../domain/catalog/foods";
 import { useGameStore } from "../../state/gameStore";
 import { countOf } from "../../domain/inventory";
+import { EmojiIcon } from "../../components/EmojiIcon";
 
 export function ShopScreen() {
   const navigate = useNavigate();
@@ -31,7 +32,10 @@ export function ShopScreen() {
         </button>
         <h1 style={{ margin: 0, marginLeft: 12 }}>ショップ</h1>
         <div className="spacer" />
-        <strong style={{ fontSize: "1.1rem" }}>💰 {wallet.coins}</strong>
+        <strong style={{ fontSize: "1.1rem" }} className="row" >
+          <EmojiIcon emoji="💰" size={24} alt="コイン" />
+          <span style={{ marginLeft: 4 }}>{wallet.coins}</span>
+        </strong>
       </header>
 
       <div className="list">
@@ -41,7 +45,7 @@ export function ShopScreen() {
           return (
             <div className="list-row" key={food.id}>
               <div className="icon" aria-hidden>
-                {food.icon}
+                <EmojiIcon emoji={food.icon} size={36} alt="" />
               </div>
               <div>
                 <strong>{food.name}</strong>
@@ -62,7 +66,8 @@ export function ShopScreen() {
                     : handleBuy(food.id)
                 }
               >
-                💰{food.price}
+                <EmojiIcon emoji="💰" size={18} alt="" />
+                <span style={{ marginLeft: 2 }}>{food.price}</span>
               </button>
             </div>
           );

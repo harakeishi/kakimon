@@ -6,6 +6,7 @@ import { StudySelectScreen } from "./features/study/StudySelectScreen";
 import { StudyPlayScreen } from "./features/study/StudyPlayScreen";
 import { StudyResultScreen } from "./features/study/StudyResultScreen";
 import { ShopScreen } from "./features/shop/ShopScreen";
+import { EmojiIcon } from "./components/EmojiIcon";
 
 export function App() {
   const init = useGameStore((s) => s.init);
@@ -19,7 +20,7 @@ export function App() {
     return (
       <div className="app-shell">
         <div className="card center">
-          <div className="big-emoji">🥚</div>
+          <EmojiIcon emoji="🥚" size={72} alt="" />
           <p>よみこみちゅう…</p>
         </div>
       </div>

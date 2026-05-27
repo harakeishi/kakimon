@@ -50,6 +50,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: 4.3.3
         version: 4.3.3(vite@5.4.11(@types/node@22.10.1)(terser@5.48.0))
+      openmoji:
+        specifier: 17.0.0
+        version: 17.0.0
       typescript:
         specifier: 5.6.3
         version: 5.6.3
@@ -1541,6 +1544,9 @@ packages:
   object.assign@4.1.7:
     resolution: {integrity: sha512-nK28WOo+QIjBkDduTINE4JkF/UJJKyf2EJxvJKfblDpyg0Q+pkOHNTL0Qwy6NP6FhE/EnzV73BxxqcJaXY9anw==}
     engines: {node: '>= 0.4'}
+
+  openmoji@17.0.0:
+    resolution: {integrity: sha512-EBnYrNGdcdw+OSXmENeNE1yBNRu6tOraTmoOyUbJkTmvT/+XETp8RZLSJFzD3lrPc5N9CzsyPnRTk0Vp4UaI9w==}
 
   own-keys@1.0.1:
     resolution: {integrity: sha512-qFOyK5PjiWZd+QQIh+1jhdb9LpxTF0qs7Pm8o5QHYZ0M3vKqSqzsZaEB6oWlxZ+q2sJBMI/Ktgd2N5ZwQoRHfg==}
@@ -3557,6 +3563,8 @@ snapshots:
       es-object-atoms: 1.1.2
       has-symbols: 1.1.0
       object-keys: 1.1.1
+
+  openmoji@17.0.0: {}
 
   own-keys@1.0.1:
     dependencies:
