@@ -3,7 +3,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 interface ResultState {
   pluginId: string;
   pluginName: string;
-  reward: { coins: number; exp: number; leveledUp: boolean };
+  reward: {
+    coins: number;
+    exp: number;
+    leveledUp: boolean;
+    wasDeceased: boolean;
+  };
   score: number;
   questionCount: number;
 }
@@ -35,7 +40,7 @@ export function StudyResultScreen() {
   return (
     <>
       <section className="card center">
-        <div className="big-emoji">🎉</div>
+        <div className="big-emoji">{state.reward.wasDeceased ? "🌸" : "🎉"}</div>
         <h1 style={{ margin: 0 }}>{cheer}</h1>
         <p className="muted">{state.pluginName} {state.questionCount}もん</p>
 
@@ -44,16 +49,31 @@ export function StudyResultScreen() {
           <div className="coin-pop">{scorePercent}%</div>
         </div>
 
-        <div className="card" style={{ marginTop: 12 }}>
-          <div style={{ fontSize: "1.1rem" }}>もらえたよ</div>
-          <div className="coin-pop">+{state.reward.coins} コイン</div>
-          <div className="muted">けいけんち +{state.reward.exp}</div>
-          {state.reward.leveledUp && (
-            <div style={{ marginTop: 10, color: "var(--good)", fontWeight: 700 }}>
-              ⭐️ レベルアップ！
+        {state.reward.wasDeceased ? (
+          <div className="card" style={{ marginTop: 12 }}>
+            <div style={{ fontSize: "1.1rem" }}>
+              モンスターは おやすみちゅう
             </div>
-          )}
-        </div>
+            <p className="muted" style={{ margin: "8px 0 0" }}>
+              いまは ごほうびを もらえないけど、
+              <br />
+              べんきょうの きろくは ちゃんと のこっているよ。
+            </p>
+          </div>
+        ) : (
+          <div className="card" style={{ marginTop: 12 }}>
+            <div style={{ fontSize: "1.1rem" }}>もらえたよ</div>
+            <div className="coin-pop">+{state.reward.coins} コイン</div>
+            <div className="muted">けいけんち +{state.reward.exp}</div>
+            {state.reward.leveledUp && (
+              <div
+                style={{ marginTop: 10, color: "var(--good)", fontWeight: 700 }}
+              >
+                ⭐️ レベルアップ！
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       <button

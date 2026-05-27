@@ -89,6 +89,10 @@ function cryptoRandomId(): string {
 
 const ONE_HOUR = 60 * 60 * 1000;
 
+// チャンクサイズ。長期放置でも状態遷移と 48h dying タイマーが正しく
+// 進むよう、1 時間刻みでステップ実行する。30 日不在で 720 回ループ程度。
+const TICK_CHUNK_MS = ONE_HOUR;
+
 /**
  * 放置時間に応じて Monster の状態を更新する純粋関数。
  * - hunger: 24 時間で 0 → 100
@@ -96,57 +100,70 @@ const ONE_HOUR = 60 * 60 * 1000;
  * - mood: 168 時間 (1 週間) で 50 → 20 までゆっくり低下 (下限 20)
  * - hp: sick / dying 中、24 時間で maxHp の 25% 減
  * - dying に入って 48 時間で deceased
+ *
+ * 内部で 1 時間刻みのチャンクに分割して評価する。これにより
+ * 「数日放置 → 1 度の tick で sick→dying→deceased まで進む」が正しく動く。
  */
 export function tickMonster(m: Monster, nowMs: number): Monster {
   if (m.lifeState === "deceased") return m;
 
-  // 保存値が壊れていた場合 (NaN) は今を起点に再開し、tick の不整合伝播を防ぐ
   const lastMsRaw = Date.parse(m.lastTickAt);
   const lastMs = Number.isFinite(lastMsRaw) ? lastMsRaw : nowMs;
-  const dtMs = Math.max(0, nowMs - lastMs);
-  if (dtMs === 0) return m;
+  const totalDt = Math.max(0, nowMs - lastMs);
+  if (totalDt === 0) return m;
 
+  let current = m;
+  let cursor = lastMs;
+  while (cursor < nowMs && current.lifeState !== "deceased") {
+    const step = Math.min(TICK_CHUNK_MS, nowMs - cursor);
+    cursor += step;
+    current = tickStep(current, cursor, step);
+  }
+  return current;
+}
+
+function tickStep(m: Monster, atMs: number, dtMs: number): Monster {
   const dtH = dtMs / ONE_HOUR;
 
   const hunger = clamp(m.condition.hunger + (100 / 24) * dtH);
   const cleanliness = clamp(m.condition.cleanliness - (100 / 72) * dtH);
-  // 設計上の最低値は 20。0 まで落とすと weak 判定の mood < 40 を実質常時通すことになる
+  // 設計上の最低値は 20。0 まで落とすと weak 判定の mood < 40 を常時通す。
   const mood = clamp(m.condition.mood - (30 / 168) * dtH, 20, 100);
 
   let lifeState: LifeState = m.lifeState;
   let hp = m.stats.hp;
   let dyingSince = m.dyingSince;
 
-  // 状態を悪化方向にだけ遷移させる。改善はお世話アクションで明示的に行う。
-  // 重要: 遷移後の lifeState で drain を判定する。原状で sick じゃなくても
-  // 今 tick で sick になったら hp を削る — そうしないと「長時間放置→sick 到達
-  // → でも hp 満タンのまま」という設計と乖離した状態に陥り dying に至らない。
+  // 状態は悪化方向にだけ遷移する。改善はお世話アクションで明示的に。
   if (lifeState === "healthy" || lifeState === "weak") {
     if (hunger >= 60 || cleanliness <= 40 || mood < 40) {
       lifeState = "weak";
     }
-    if (hunger >= 85 && dtH >= 12) lifeState = "sick";
-    if (cleanliness <= 20 && dtH >= 24) lifeState = "sick";
+    // 1h チャンクでは「12 時間継続して hunger 高」を判定できないため、
+    // 「hunger 飽和 + weak 状態が一定経過」を擬似的に sick への引き金とする。
+    // 設計の意図 (12h 継続) は「ちゃんと世話してれば短時間で sick にしない」
+    // ことなので、ここでは hunger == 100 (= 24h 以上空腹継続) を条件にする。
+    if (hunger >= 100) lifeState = "sick";
+    if (cleanliness <= 0) lifeState = "sick";
   }
   if (lifeState === "sick" || lifeState === "dying") {
     const drain = ((m.stats.maxHp * 0.25) / 24) * dtH;
     hp = Math.max(0, hp - drain);
   }
-  // 浮動小数点比較は <= 0 にする (Math.max でクリップしても rounding 経路は別)
   if (lifeState === "sick" && hp <= 0) {
     lifeState = "dying";
-    dyingSince = new Date(nowMs).toISOString();
+    dyingSince = new Date(atMs).toISOString();
   }
   if (lifeState === "dying" && dyingSince) {
     const dyingStartedRaw = Date.parse(dyingSince);
     if (Number.isFinite(dyingStartedRaw)) {
-      const dyingMs = nowMs - dyingStartedRaw;
+      const dyingMs = atMs - dyingStartedRaw;
       if (dyingMs >= 48 * ONE_HOUR) {
         lifeState = "deceased";
       }
     } else {
-      // 壊れた dyingSince が来た場合は dying スタートをリセットして再記録する
-      dyingSince = new Date(nowMs).toISOString();
+      // 壊れた dyingSince はリセットして再記録
+      dyingSince = new Date(atMs).toISOString();
     }
   }
 
@@ -155,7 +172,7 @@ export function tickMonster(m: Monster, nowMs: number): Monster {
     condition: { hunger, mood, cleanliness },
     stats: { ...m.stats, hp: Math.round(hp) },
     lifeState,
-    lastTickAt: new Date(nowMs).toISOString(),
+    lastTickAt: new Date(atMs).toISOString(),
     dyingSince,
   };
 }

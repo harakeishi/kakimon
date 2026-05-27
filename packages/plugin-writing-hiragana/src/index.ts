@@ -174,6 +174,8 @@ function startSession(
   let settled = false; // ctx.complete / abort を 1 度だけ呼ぶ guard
   let questionStartedAt = Date.now();
   let pendingTimer: number | null = null;
+  let consecutiveLoadFailures = 0;
+  const MAX_CONSECUTIVE_FAILURES = 3;
 
   function clearPendingTimer() {
     if (pendingTimer !== null) {
@@ -237,6 +239,9 @@ function startSession(
         configLoader,
       });
       currentChar = instance;
+      // 連続失敗カウンタは「mount まで到達したら」リセット。
+      // (mount 失敗は catch で扱う)
+      consecutiveLoadFailures = 0;
       instance.mount(charHost, {
         size: 300,
         showOutline: true,
@@ -285,6 +290,17 @@ function startSession(
         elapsedMs: elapsed,
         meta: { character: ch, error: String(err) },
       });
+      consecutiveLoadFailures++;
+      if (consecutiveLoadFailures >= MAX_CONSECUTIVE_FAILURES) {
+        // データ層がまるごと壊れているとき、偽の「完了」を host に送ると
+        // 0 点セッションが履歴に残ってしまう。abort で host に
+        // 「環境の問題で中断した」ことを伝える。
+        safeAbort(
+          "error",
+          `consecutive char load failures (${consecutiveLoadFailures})`
+        );
+        return;
+      }
       currentIndex++;
       mountCurrent();
     }
@@ -332,16 +348,8 @@ function startSession(
       skipBtn.removeEventListener("click", onSkipClick);
       unmountCurrent();
       // 設計上は dispose() は host 側の都合 (画面切替・unmount) で呼ばれる。
-      // まだ settle していなければ "user" abort として通知し、host に
-      // 「セッションは未完了で放棄された」状態を渡す。
-      if (!settled) {
-        settled = true;
-        try {
-          ctx.abort("user", "session disposed before completion");
-        } catch (e) {
-          console.error("[plugin-writing-hiragana] dispose abort threw:", e);
-        }
-      }
+      // safeAbort が settled を尊重するため、すでに complete 済みなら no-op。
+      safeAbort("user", "session disposed before completion");
       target.innerHTML = "";
     },
   };

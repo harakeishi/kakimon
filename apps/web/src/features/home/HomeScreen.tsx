@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useGameStore } from "../../state/gameStore";
 import { FOODS } from "../../domain/catalog/foods";
@@ -26,8 +27,11 @@ export function HomeScreen() {
   const inventory = useGameStore((s) => s.inventory);
   const petMonster = useGameStore((s) => s.petMonster);
   const feedWith = useGameStore((s) => s.feedWith);
+  const rebirth = useGameStore((s) => s.rebirth);
+  const [confirmRebirth, setConfirmRebirth] = useState(false);
 
   if (!monster) return null;
+  const isDeceased = monster.lifeState === "deceased";
 
   const hungerBar = barClass(100 - monster.condition.hunger);
   const moodBar = barClass(monster.condition.mood);
@@ -45,7 +49,7 @@ export function HomeScreen() {
         <StatusCell label="コイン" value={`${wallet.coins}`} />
       </header>
 
-      {monster.lifeState !== "healthy" && (
+      {monster.lifeState !== "healthy" && !isDeceased && (
         <div
           className={`warn-banner ${
             monster.lifeState === "dying" ? "" : "sick"
@@ -53,6 +57,29 @@ export function HomeScreen() {
         >
           {monster.name} は {LIFE_STATE_LABELS[monster.lifeState]}。
           おせわ してあげよう。
+        </div>
+      )}
+
+      {isDeceased && (
+        <div className="card center">
+          <div className="big-emoji">🌸</div>
+          <h2 style={{ margin: "8px 0 4px" }}>
+            {monster.name} は おやすみちゅう
+          </h2>
+          <p className="muted" style={{ marginTop: 0 }}>
+            これまで ありがとう。
+            <br />
+            また あたらしい タマゴから はじめられるよ。
+          </p>
+          <button
+            className="btn btn--big btn--block btn--success"
+            onClick={() => setConfirmRebirth(true)}
+          >
+            🥚 あたらしい タマゴで はじめる
+          </button>
+          <p className="muted" style={{ fontSize: "0.8rem", marginBottom: 0 }}>
+            コインと もちもの は そのまま のこるよ
+          </p>
         </div>
       )}
 
@@ -147,6 +174,35 @@ export function HomeScreen() {
           })}
         </div>
       </section>
+
+      {confirmRebirth && (
+        <div className="modal-mask" onClick={() => setConfirmRebirth(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="big-emoji">🥚</div>
+            <h2>あたらしい タマゴで はじめる？</h2>
+            <p className="muted">
+              {monster.name} は ずかんに のこるよ。
+            </p>
+            <div className="row" style={{ marginTop: 16, gap: 10 }}>
+              <button
+                className="btn btn--ghost btn--block"
+                onClick={() => setConfirmRebirth(false)}
+              >
+                やめる
+              </button>
+              <button
+                className="btn btn--block btn--success"
+                onClick={() => {
+                  setConfirmRebirth(false);
+                  void rebirth();
+                }}
+              >
+                はじめる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

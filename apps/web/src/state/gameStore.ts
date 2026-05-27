@@ -18,6 +18,7 @@ import {
   studySessionRepo,
   walletRepo,
 } from "../infra/db/repositories";
+import { db } from "../infra/db/dexie";
 import { FOODS, findFood } from "../domain/catalog/foods";
 
 interface GameState {
@@ -33,7 +34,12 @@ interface GameState {
   buyFood: (foodId: string) => Promise<boolean>;
   applyReward: (
     session: StudySession
-  ) => Promise<{ coins: number; exp: number; leveledUp: boolean }>;
+  ) => Promise<{
+    coins: number;
+    exp: number;
+    leveledUp: boolean;
+    wasDeceased: boolean;
+  }>;
   /** 「ふりだしに戻る」: 全データをまっさらにする (開発用・保護者画面用) */
   hardReset: () => Promise<void>;
   /**
@@ -109,16 +115,16 @@ export const useGameStore = create<GameState>((set, get) => ({
     const removed = removeItem(inventory, foodId, "food", 1);
     if (!removed) return false;
     const fed = feedMonster(monster, food.effects);
-    // 在庫と Monster は別テーブルなので IndexedDB transaction では一括化できない。
-    // monster save → inventory save の順にし、もし monster save が失敗したら
-    // 在庫を消費しない (atomicity 近似)。
-    await monsterRepo.save(fed);
+    // 別テーブル間 (Monster / Inventory) の atomicity は IndexedDB の単一
+    // transaction で実現できる (Dexie の multi-table tx)。
     try {
-      await inventoryRepo.save(removed);
+      await db.transaction("rw", db.monster, db.inventory, async () => {
+        await monsterRepo.save(fed);
+        await inventoryRepo.save(removed);
+      });
     } catch (e) {
-      // 在庫保存失敗時は monster をロールバック保存して整合性を保つ
-      await monsterRepo.save(monster);
-      throw e;
+      console.error("[gameStore.feedWith] transaction failed:", e);
+      return false;
     }
     set({ monster: fed, inventory: removed });
     return true;
@@ -131,13 +137,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     const spent = spend(wallet, food.price);
     if (!spent) return false;
     const added = addItem(inventory, foodId, "food", 1);
-    // wallet → inventory の順で書く。inventory save が失敗したら wallet を巻き戻す。
-    await walletRepo.save(spent);
     try {
-      await inventoryRepo.save(added);
+      await db.transaction("rw", db.wallet, db.inventory, async () => {
+        await walletRepo.save(spent);
+        await inventoryRepo.save(added);
+      });
     } catch (e) {
-      await walletRepo.save(wallet);
-      throw e;
+      console.error("[gameStore.buyFood] transaction failed:", e);
+      return false;
     }
     set({ wallet: spent, inventory: added });
     return true;
@@ -160,12 +167,18 @@ export const useGameStore = create<GameState>((set, get) => ({
       nextMonster = gainExp(monster, effectiveSession.rewards.exp);
       leveledUp = nextMonster.level > before;
     }
-    // 順序: monster → wallet → session。途中失敗時は次回 init() の tick で
-    // 整合性が回復する程度の弱保証。3 テーブルにまたがる本物の atomic
-    // transaction は Dexie で組めるが、現状の MVP では弱保証で許容する。
-    if (nextMonster) await monsterRepo.save(nextMonster);
-    await walletRepo.save(nextWallet);
-    await studySessionRepo.append(effectiveSession);
+    // 3 テーブルにまたがる atomic 書き込み。途中で失敗したら全てロールバックする。
+    await db.transaction(
+      "rw",
+      db.monster,
+      db.wallet,
+      db.studySession,
+      async () => {
+        if (nextMonster) await monsterRepo.save(nextMonster);
+        await walletRepo.save(nextWallet);
+        await studySessionRepo.append(effectiveSession);
+      }
+    );
     const recent = await studySessionRepo.recent(20);
     set({
       wallet: nextWallet,
@@ -176,6 +189,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       coins: effectiveSession.rewards.coins,
       exp: effectiveSession.rewards.exp,
       leveledUp,
+      wasDeceased: isDeceased,
     };
   },
 

@@ -12,6 +12,14 @@ const MAX_SESSIONS = 1000;
 // MVP では Monster は端末上に 1 体のみ。複数行の漏れ込みを誘発する経路
 // (StrictMode の二重 init, 旧バージョンからの移行 etc) があるため、
 // 「最新の lastTickAt を持つ 1 行に正規化する」ロジックを load 内で実装する。
+function lastTickMs(m: Monster): number {
+  const n = Date.parse(m.lastTickAt);
+  // 壊れた lastTickAt は最古 (= 削除候補) として扱う。
+  // Date.parse の NaN を comparator で減算するとソート結果が処理系依存になり、
+  // 「壊れた行を残して正規の行を消す」事故が起きる。
+  return Number.isFinite(n) ? n : -Infinity;
+}
+
 export const monsterRepo = {
   async load(): Promise<Monster | null> {
     return db.transaction("rw", db.monster, async () => {
@@ -19,8 +27,7 @@ export const monsterRepo = {
       if (rows.length === 0) return null;
       if (rows.length === 1) return rows[0]!;
       // 最も lastTickAt が新しいものを採用し、残りは削除する。
-      // (id 順や bornAt より、最後に世話されたモンスターを尊重したい)
-      rows.sort((a, b) => Date.parse(b.lastTickAt) - Date.parse(a.lastTickAt));
+      rows.sort((a, b) => lastTickMs(b) - lastTickMs(a));
       const keep = rows[0]!;
       const remove = rows.slice(1).map((r) => r.id);
       await db.monster.bulkDelete(remove);
