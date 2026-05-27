@@ -239,9 +239,6 @@ function startSession(
         configLoader,
       });
       currentChar = instance;
-      // 連続失敗カウンタは「mount まで到達したら」リセット。
-      // (mount 失敗は catch で扱う)
-      consecutiveLoadFailures = 0;
       instance.mount(charHost, {
         size: 300,
         showOutline: true,
@@ -256,6 +253,10 @@ function startSession(
           // も無視。
           if (disposed || settled) return;
           if (myIndex !== currentIndex) return;
+          // ユーザが実際に最後まで書ききった = データ層は健康。
+          // 連続失敗カウンタをリセット。char.create / mount 直後ではなく
+          // 実際に書き終えた時点でリセットすることで、mount で持続失敗するケースを拾える。
+          consecutiveLoadFailures = 0;
           const score = data.matched
             ? Math.max(0, 1 - data.totalMistakes * 0.1)
             : 0.3;
@@ -343,13 +344,22 @@ function startSession(
   return {
     dispose() {
       if (disposed) return;
+      // 注意: safeAbort は `disposed || settled` で即 return するため、
+      // disposed = true をセットする前に呼ぶ必要がある。
+      // ここで host に "user abort" を通知し、その後で disposed フラグを立てて
+      // 以降の発火を止める。
+      if (!settled) {
+        settled = true;
+        try {
+          ctx.abort("user", "session disposed before completion");
+        } catch (e) {
+          console.error("[plugin-writing-hiragana] dispose abort threw:", e);
+        }
+      }
       disposed = true;
       clearPendingTimer();
       skipBtn.removeEventListener("click", onSkipClick);
       unmountCurrent();
-      // 設計上は dispose() は host 側の都合 (画面切替・unmount) で呼ばれる。
-      // safeAbort が settled を尊重するため、すでに complete 済みなら no-op。
-      safeAbort("user", "session disposed before completion");
       target.innerHTML = "";
     },
   };

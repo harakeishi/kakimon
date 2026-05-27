@@ -53,6 +53,7 @@ interface GameState {
 // init() / bootstrap 系の二重起動を防ぐためのプロセス内 promise キャッシュ。
 // React StrictMode の二度マウントでも 1 回しか走らないようにする。
 let initInflight: Promise<void> | null = null;
+let rebirthInflight: Promise<void> | null = null;
 
 export const useGameStore = create<GameState>((set, get) => ({
   ready: false,
@@ -208,15 +209,26 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   async rebirth() {
-    // Monster のみクリア。Wallet / Inventory / StudySession は持ち越す。
-    await monsterRepo.clear();
-    const fresh = await bootstrapIfEmpty();
-    // recentSessions は持ち越しなので再読込
-    const recent = await studySessionRepo.recent(20);
-    set({
-      monster: fresh.monster,
-      recentSessions: recent,
-    });
+    if (rebirthInflight) return rebirthInflight;
+    rebirthInflight = (async () => {
+      // Monster のみクリア。Wallet / Inventory / StudySession は持ち越す。
+      await monsterRepo.clear();
+      const fresh = await bootstrapIfEmpty();
+      // 他タブが wallet / inventory を更新している可能性に備え、
+      // bootstrap で読んだ最新値で in-memory state を上書きする。
+      const recent = await studySessionRepo.recent(20);
+      set({
+        monster: fresh.monster,
+        wallet: fresh.wallet,
+        inventory: fresh.inventory,
+        recentSessions: recent,
+      });
+    })();
+    try {
+      await rebirthInflight;
+    } finally {
+      rebirthInflight = null;
+    }
   },
 }));
 
