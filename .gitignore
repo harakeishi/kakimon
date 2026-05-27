@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-ssr
+.vite
+.cache
+*.log
+.DS_Store
+coverage
+.env
+.env.*
+!.env.example
+# kakitori のデータは scripts/sync-kakitori-data.mjs で都度同期する
+apps/web/public/kakitori/
