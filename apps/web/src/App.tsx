@@ -10,11 +10,32 @@ import { EmojiIcon } from "./components/EmojiIcon";
 
 export function App() {
   const init = useGameStore((s) => s.init);
+  const tick = useGameStore((s) => s.tick);
   const ready = useGameStore((s) => s.ready);
 
   useEffect(() => {
     void init();
   }, [init]);
+
+  // tick の自動駆動：定期 + 復帰時。
+  // - 60 秒ごとに最新化（dying/deceased の検知をリアクティブに）
+  // - 別タブから戻ったとき・モバイルから復帰したときも即座に評価
+  useEffect(() => {
+    if (!ready) return;
+    const id = window.setInterval(() => {
+      void tick();
+    }, 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void tick();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [ready, tick]);
 
   if (!ready) {
     return (

@@ -349,9 +349,121 @@ h3 {
   color: #92400e;
 }
 
+/* 難易度（コース）グリッド ─────────────────────────────── */
+.difficulty-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.difficulty-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fffbe6;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 10px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text);
+  cursor: pointer;
+  min-height: 56px;
+  text-align: left;
+}
+.difficulty-chip:active {
+  transform: translateY(1px);
+}
+.difficulty-chip__icon {
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  background: #fff;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+.difficulty-chip__label {
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+/* 命名モーダル ─────────────────────────────────────── */
+.name-input {
+  width: 100%;
+  font-size: 1.4rem;
+  text-align: center;
+  padding: 14px 12px;
+  margin: 12px 0 10px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: #fffbe6;
+  font-family: inherit;
+  outline: none;
+}
+.name-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+}
+.suggest-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.suggest-chip {
+  border: 2px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+.suggest-chip:active {
+  transform: translateY(1px);
+}
+
+/* スプライト演出 ─────────────────────────────────────── */
+@keyframes egg-wiggle {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-6deg); }
+  40% { transform: rotate(6deg); }
+  60% { transform: rotate(-3deg); }
+  80% { transform: rotate(3deg); }
+}
+.sprite--egg-wiggle {
+  animation: egg-wiggle 2.4s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+
+@keyframes sick-sway {
+  0%, 100% { transform: translateY(0); filter: saturate(0.7); }
+  50% { transform: translateY(3px); filter: saturate(0.5); }
+}
+.sprite--sick {
+  animation: sick-sway 3s ease-in-out infinite;
+}
+
+@keyframes dying-pulse {
+  0%, 100% { transform: scale(1); filter: grayscale(0.6) brightness(0.95); }
+  50% { transform: scale(0.96); filter: grayscale(0.7) brightness(0.85); }
+}
+.sprite--dying {
+  animation: dying-pulse 1.6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .monster-art {
+  .monster-art,
+  .sprite--egg-wiggle,
+  .sprite--sick,
+  .sprite--dying {
     transition: none;
+    animation: none;
   }
   .bar > span {
     transition: none;

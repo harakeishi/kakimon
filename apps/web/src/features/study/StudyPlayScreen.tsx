@@ -146,7 +146,13 @@ export function StudyPlayScreen() {
       outcomes: result.outcomes,
       rewards: reward,
     };
-    let applied: { coins: number; exp: number; leveledUp: boolean };
+    let applied: {
+      coins: number;
+      exp: number;
+      leveledUp: boolean;
+      wasDeceased: boolean;
+      didHatch: boolean;
+    };
     try {
       applied = await applyReward(sessionRecord);
     } catch (e) {
@@ -168,6 +174,14 @@ export function StudyPlayScreen() {
   }
 
   if (!difficulty) {
+    // 行ごと/数字グループのコースが増えたので、レベルごとにまとめて表示する。
+    const byLevel = new Map<number, DifficultyOption[]>();
+    for (const d of plugin.manifest.difficulties) {
+      const arr = byLevel.get(d.level) ?? [];
+      arr.push(d);
+      byLevel.set(d.level, arr);
+    }
+    const levels = [...byLevel.keys()].sort((a, b) => a - b);
     return (
       <>
         <header className="row">
@@ -177,26 +191,27 @@ export function StudyPlayScreen() {
           <h1 style={{ margin: 0, marginLeft: 12 }}>{plugin.manifest.name}</h1>
         </header>
         <p className="muted" style={{ margin: "0 4px" }}>
-          むずかしさを えらんでね
+          コースを えらんでね
         </p>
-        <div className="list">
-          {plugin.manifest.difficulties.map((d) => (
-            <button
-              key={d.key}
-              className="plugin-card"
-              onClick={() => setDifficulty(d)}
-            >
-              <div className="icon" aria-hidden>
-                {plugin.manifest.icon}
-              </div>
-              <div>
-                <strong>{d.label}</strong>
-                <div className="desc">レベル {d.level}</div>
-              </div>
-              <div>▶</div>
-            </button>
-          ))}
-        </div>
+        {levels.map((lv) => (
+          <section key={lv} className="card" style={{ padding: 12 }}>
+            <h3 style={{ margin: "0 0 8px" }}>レベル {lv}</h3>
+            <div className="difficulty-grid">
+              {byLevel.get(lv)!.map((d) => (
+                <button
+                  key={d.key}
+                  className="difficulty-chip"
+                  onClick={() => setDifficulty(d)}
+                >
+                  <span className="difficulty-chip__icon" aria-hidden>
+                    {plugin.manifest.icon}
+                  </span>
+                  <span className="difficulty-chip__label">{d.label}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
       </>
     );
   }

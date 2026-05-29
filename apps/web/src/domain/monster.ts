@@ -42,6 +42,8 @@ export interface Monster {
   dyingSince: string | null;
   equipped: MonsterEquipped;
   favoriteFoodIds: string[];
+  /** 累計学習セッション数（お墓に刻む用） */
+  totalSessions: number;
 }
 
 export const STARTING_STATS: MonsterStats = {
@@ -53,25 +55,70 @@ export const STARTING_STATS: MonsterStats = {
   smart: 1,
 };
 
-export function createInitialMonster(name = "もんちゃん"): Monster {
+/**
+ * 新規モンスターは「卵」状態で誕生する。
+ * - name は空文字（孵化時にユーザが命名する）
+ * - stage は "egg"。卵期はステータスが減衰しないように tick で扱う
+ * - 1 回学習すると孵化（hatch）して "baby" になり、命名フローへ進む
+ */
+export function createInitialMonster(): Monster {
   const now = new Date().toISOString();
   return {
     id: cryptoRandomId(),
-    name,
+    name: "",
     species: "placeholder-001",
     bornAt: now,
-    stage: "baby",
+    stage: "egg",
     level: 1,
     exp: 0,
     expToNext: 50,
     stats: { ...STARTING_STATS },
-    condition: { hunger: 30, mood: 70, cleanliness: 80 },
+    condition: { hunger: 0, mood: 100, cleanliness: 100 },
     lifeState: "healthy",
     lastTickAt: now,
     dyingSince: null,
     equipped: {},
     favoriteFoodIds: [],
+    totalSessions: 0,
   };
+}
+
+/** 卵期間中かどうか。卵は世話を必要としない。 */
+export function isEgg(m: Monster): boolean {
+  return m.stage === "egg";
+}
+
+/** 孵化済みか（卵以外） */
+export function isHatched(m: Monster): boolean {
+  return m.stage !== "egg";
+}
+
+/** 命名待ちか（孵化済み・healthy系・name 空） */
+export function needsNaming(m: Monster): boolean {
+  return isHatched(m) && m.name.trim() === "";
+}
+
+/**
+ * 卵を孵化させ、baby に進化させる。学習完了時の最初の 1 回で呼ぶ。
+ * condition はベビー期の初期値に置き換える（卵期間の値ではなく標準値）。
+ */
+export function hatch(m: Monster, nowMs: number = Date.now()): Monster {
+  if (m.stage !== "egg") return m;
+  const now = new Date(nowMs).toISOString();
+  return {
+    ...m,
+    stage: "baby",
+    bornAt: now,
+    lastTickAt: now,
+    condition: { hunger: 20, mood: 80, cleanliness: 90 },
+  };
+}
+
+/** 命名（trim 済み、空なら無視） */
+export function rename(m: Monster, name: string): Monster {
+  const trimmed = name.trim().slice(0, 12);
+  if (!trimmed) return m;
+  return { ...m, name: trimmed };
 }
 
 function cryptoRandomId(): string {
@@ -106,6 +153,10 @@ const TICK_CHUNK_MS = ONE_HOUR;
  */
 export function tickMonster(m: Monster, nowMs: number): Monster {
   if (m.lifeState === "deceased") return m;
+  // 卵期は世話を必要としない。lastTickAt だけ更新して状態は据え置き。
+  if (m.stage === "egg") {
+    return { ...m, lastTickAt: new Date(nowMs).toISOString() };
+  }
 
   const lastMsRaw = Date.parse(m.lastTickAt);
   const lastMs = Number.isFinite(lastMsRaw) ? lastMsRaw : nowMs;

@@ -6,6 +6,7 @@ import { createInitialWallet } from "../../domain/wallet";
 import type { Inventory, InventoryEntry } from "../../domain/inventory";
 import { createInitialInventory } from "../../domain/inventory";
 import type { StudySession } from "../../domain/studySession";
+import type { GraveRecord } from "../../domain/graveyard";
 
 const MAX_SESSIONS = 1000;
 
@@ -82,6 +83,18 @@ export const inventoryRepo = {
         await db.inventory.bulkPut(inv.entries as InventoryEntry[]);
       }
     });
+  },
+};
+
+export const graveyardRepo = {
+  async list(): Promise<GraveRecord[]> {
+    return db.graveyard.orderBy("diedAt").reverse().toArray();
+  },
+  async add(g: GraveRecord): Promise<void> {
+    await db.graveyard.put(g);
+  },
+  async clear(): Promise<void> {
+    await db.graveyard.clear();
   },
 };
 

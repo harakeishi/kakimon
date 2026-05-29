@@ -1,8 +1,11 @@
+// 数字（0〜9）の書き取りプラグイン。
+// kakitori の char.create() で SVG ストロークを描画し、ユーザがなぞる。
+
 import type {
   CharCreateOptions,
   CharacterConfig,
 } from "@k1low/kakitori";
-import { char, hiragana } from "@k1low/kakitori";
+import { char } from "@k1low/kakitori";
 import type {
   ContentPlugin,
   PluginManifest,
@@ -11,11 +14,7 @@ import type {
   SessionContext,
   SessionHandle,
 } from "@kakimon/plugin-api";
-import { validateManifest } from "@kakimon/plugin-api";
 
-// ホストが用意したデータの公開 URL (web アプリの BASE_URL に対する相対)。
-// kakitori のデフォルトは unpkg を直接叩くため、PWA 設計に反する。
-// host 側で scripts/sync-kakitori-data.mjs が public/kakitori/ を作る前提。
 function baseUrl(): string {
   const base =
     (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/";
@@ -31,7 +30,6 @@ function fetchJson<T = unknown>(url: string): Promise<T | "not-found"> {
     .then(async (res) => {
       if (res.status === 404) return "not-found" as const;
       if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-      // SPA の navigation fallback で index.html を 200 で返されるケースを弾く。
       const contentType = res.headers.get("content-type") ?? "";
       if (!contentType.includes("json")) {
         throw new Error(
@@ -56,9 +54,7 @@ const charDataLoader: NonNullable<CharCreateOptions["charDataLoader"]> = (
         onError(new Error(`char data not found: ${c}`));
         return;
       }
-      // onLoad 自身の例外を .catch(onError) に流すと
-      // 「成功と失敗が両方ディスパッチされる」二重通知になる。
-      // setTimeout で別タスクに切ってチェーンから切り離す。
+      // ひらがなプラグインと同じ二重通知防止
       setTimeout(() => onLoad(data), 0);
     })
     .catch((err) => onError(err));
@@ -70,79 +66,53 @@ const configLoader: NonNullable<CharCreateOptions["configLoader"]> = async (
   const data = await fetchJson<CharacterConfig>(
     `${baseUrl()}kakitori/config/${encodeURIComponent(c)}.json`
   ).catch((err) => {
-    // 通信・パースなど 404 以外のエラーはログに残しつつ null で先に進む。
-    // kakitori の default は throw するが、ここではプレイ続行を優先する。
-    console.warn("[plugin-writing-hiragana] config load failed:", err);
+    console.warn("[plugin-writing-number] config load failed:", err);
     return "not-found" as const;
   });
   if (data === "not-found") return null;
   return data;
 };
 
-// ひらがな清音は「行」単位でまとめる。学習プラグインの難易度キーは行を直接
-// 表現し、難易度 1 = 単一行（あ行〜わ行）、難易度 2 = 全部ランダム。
-// kakitori の `hiragana` に含まれない文字は念のためフィルタする。
-const ROWS = [
-  { key: "a",  label: "あ行", chars: ["あ","い","う","え","お"] },
-  { key: "ka", label: "か行", chars: ["か","き","く","け","こ"] },
-  { key: "sa", label: "さ行", chars: ["さ","し","す","せ","そ"] },
-  { key: "ta", label: "た行", chars: ["た","ち","つ","て","と"] },
-  { key: "na", label: "な行", chars: ["な","に","ぬ","ね","の"] },
-  { key: "ha", label: "は行", chars: ["は","ひ","ふ","へ","ほ"] },
-  { key: "ma", label: "ま行", chars: ["ま","み","む","め","も"] },
-  { key: "ya", label: "や行", chars: ["や","ゆ","よ"] },
-  { key: "ra", label: "ら行", chars: ["ら","り","る","れ","ろ"] },
-  { key: "wa", label: "わ行", chars: ["わ","を","ん"] },
-] as const;
+// 数字 0〜9。kakitori-data に config が存在する文字だけ実際に描画される。
+// チュートリアル順序として小→大 を採用（書きやすい 1 から始めるレッスンは
+// 別途 "easy" を用意するか、後で並べ替える）。
+const DIGITS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"] as const;
 
-const KAKITORI_HIRAGANA = new Set<string>(hiragana);
-function filterRenderable(chars: readonly string[]): string[] {
-  const filtered = chars.filter((c) => KAKITORI_HIRAGANA.has(c));
-  return filtered.length > 0 ? filtered : [...chars];
-}
-
-const ROW_POOLS: Record<string, readonly string[]> = Object.fromEntries(
-  ROWS.map((r) => [r.key, filterRenderable(r.chars)])
-);
-const ALL_POOL: readonly string[] = filterRenderable(
-  ROWS.flatMap((r) => r.chars)
-);
+const POOLS: Record<string, readonly string[]> = {
+  // 「やさしい」: 形がシンプルな 1 2 3 と 0
+  easy: ["1", "2", "3", "0"],
+  // 「ふつう」: 4〜6
+  mid: ["4", "5", "6"],
+  // 「むずかしい」: 7〜9（曲線・斜め）
+  hard: ["7", "8", "9"],
+};
+const ALL: readonly string[] = [...DIGITS];
 
 const manifest: PluginManifest = {
-  id: "io.kakimon.writing.hiragana",
-  name: "ひらがなの かきとり",
-  description: "ひらがなを なぞって かこう",
-  version: "0.2.0",
+  id: "io.kakimon.writing.number",
+  name: "すうじの かきとり",
+  description: "0 から 9 までの すうじを かこう",
+  version: "0.1.0",
   ageHint: { min: 5, max: 8 },
   category: "writing",
-  icon: "あ",
+  // 0-9 を表す絵文字は実装環境差が大きいので、シンプルに「1」を使う
+  icon: "1",
   difficulties: [
-    // 行ごとの「セクション」（レベル 1）。順番に進めたいときに使う。
-    ...ROWS.map((r) => ({
-      key: `row-${r.key}`,
-      label: r.label,
-      level: 1 as const,
-    })),
-    // ぜんぶの中からランダム（レベル 2）。腕試し用。
-    { key: "all-random", label: "ぜんぶ ランダム", level: 2 },
+    { key: "digits-easy", label: "0・1・2・3", level: 1 },
+    { key: "digits-mid", label: "4・5・6", level: 1 },
+    { key: "digits-hard", label: "7・8・9", level: 1 },
+    { key: "digits-all-ordered", label: "0 〜 9 じゅんばん", level: 2 },
+    { key: "digits-all-random", label: "0 〜 9 ランダム", level: 2 },
   ],
 };
 
-// 注意: validateManifest はここで呼ばない。
-// プラグインの module init で throw すると、アプリ全体の起動が止まる。
-// 代わりに registry が登録時に検証する (validateManifest at registration time)。
-
 function pickQuestions(difficulty: string, count: number): string[] {
-  // 行コース（row-*）は 50 音表の順番をそのまま、行を丸ごと出題する。
-  // 子供が「あ・い・う・え・お」の順で覚えやすいよう、シャッフルも切り捨ても
-  // しない（host の questionCount は無視する。行は 3〜5 文字で量も少ない）。
-  if (difficulty.startsWith("row-")) {
-    const key = difficulty.slice("row-".length);
-    const source = ROW_POOLS[key] ?? ALL_POOL;
-    return [...source];
+  if (difficulty === "digits-all-ordered") {
+    // 順番固定。count に合わせて先頭から切り出す。
+    return ALL.slice(0, Math.min(count, ALL.length));
   }
-  // "all-random" など未知キー含め、ランダム系は全部からシャッフル
-  const source = ALL_POOL;
+  const source =
+    difficulty === "digits-all-random" ? ALL : POOLS[difficulty] ?? ALL;
   const arr = [...source];
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -163,7 +133,8 @@ function startSession(
   const questions = pickQuestions(config.difficulty, total);
   const outcomes: QuestionOutcome[] = [];
 
-  target.innerHTML = "";
+  target.replaceChildren();
+  // 既存のひらがな用クラスを流用すると CSS が当たって扱いやすい
   target.classList.add("kakimon-plugin-writing-hiragana");
 
   const header = document.createElement("div");
@@ -192,7 +163,7 @@ function startSession(
   let currentIndex = 0;
   let currentChar: ReturnType<typeof char.create> | null = null;
   let disposed = false;
-  let settled = false; // ctx.complete / abort を 1 度だけ呼ぶ guard
+  let settled = false;
   let questionStartedAt = Date.now();
   let pendingTimer: number | null = null;
   let consecutiveLoadFailures = 0;
@@ -228,8 +199,7 @@ function startSession(
         durationMs: Date.now() - startedAt,
       });
     } catch (e) {
-      // ctx.complete 自体で host が例外を投げた場合、後始末を保証する
-      console.error("[plugin-writing-hiragana] ctx.complete threw:", e);
+      console.error("[plugin-writing-number] ctx.complete threw:", e);
     }
   }
 
@@ -239,7 +209,7 @@ function startSession(
     try {
       ctx.abort(reason, detail);
     } catch (e) {
-      console.error("[plugin-writing-hiragana] ctx.abort threw:", e);
+      console.error("[plugin-writing-number] ctx.abort threw:", e);
     }
   }
 
@@ -269,14 +239,8 @@ function startSession(
         outlineColor: "#cbd5e1",
         highlightColor: "#fbbf24",
         onComplete: (data) => {
-          // dispose 後に kakitori の内部キューが onComplete を発火することがある。
-          // settled なら無視。インデックスがズレている場合 (例: skip で進められた後)
-          // も無視。
           if (disposed || settled) return;
           if (myIndex !== currentIndex) return;
-          // ユーザが実際に最後まで書ききった = データ層は健康。
-          // 連続失敗カウンタをリセット。char.create / mount 直後ではなく
-          // 実際に書き終えた時点でリセットすることで、mount で持続失敗するケースを拾える。
           consecutiveLoadFailures = 0;
           const score = data.matched
             ? Math.max(0, 1 - data.totalMistakes * 0.1)
@@ -314,9 +278,6 @@ function startSession(
       });
       consecutiveLoadFailures++;
       if (consecutiveLoadFailures >= MAX_CONSECUTIVE_FAILURES) {
-        // データ層がまるごと壊れているとき、偽の「完了」を host に送ると
-        // 0 点セッションが履歴に残ってしまう。abort で host に
-        // 「環境の問題で中断した」ことを伝える。
         safeAbort(
           "error",
           `consecutive char load failures (${consecutiveLoadFailures})`
@@ -333,11 +294,11 @@ function startSession(
       try {
         currentChar.destroy();
       } catch {
-        // ignore: 既に destroy 済みの可能性
+        // ignore
       }
       currentChar = null;
     }
-    charHost.innerHTML = "";
+    charHost.replaceChildren();
   }
 
   function onSkipClick() {
@@ -365,23 +326,19 @@ function startSession(
   return {
     dispose() {
       if (disposed) return;
-      // 注意: safeAbort は `disposed || settled` で即 return するため、
-      // disposed = true をセットする前に呼ぶ必要がある。
-      // ここで host に "user abort" を通知し、その後で disposed フラグを立てて
-      // 以降の発火を止める。
       if (!settled) {
         settled = true;
         try {
           ctx.abort("user", "session disposed before completion");
         } catch (e) {
-          console.error("[plugin-writing-hiragana] dispose abort threw:", e);
+          console.error("[plugin-writing-number] dispose abort threw:", e);
         }
       }
       disposed = true;
       clearPendingTimer();
       skipBtn.removeEventListener("click", onSkipClick);
       unmountCurrent();
-      target.innerHTML = "";
+      target.replaceChildren();
     },
   };
 }

@@ -4,6 +4,7 @@ import type { Monster } from "../../domain/monster";
 import type { Wallet } from "../../domain/wallet";
 import type { InventoryEntry } from "../../domain/inventory";
 import type { StudySession } from "../../domain/studySession";
+import type { GraveRecord } from "../../domain/graveyard";
 
 interface WalletRow extends Wallet {
   id: "singleton";
@@ -20,6 +21,7 @@ export class KakimonDB extends Dexie {
   inventory!: Table<InventoryEntry, [string, "food" | "equipment"]>;
   studySession!: Table<StudySession, string>;
   settings!: Table<SingletonRow<unknown>, string>;
+  graveyard!: Table<GraveRecord, string>;
 
   constructor() {
     super("kakimon");
@@ -41,6 +43,29 @@ export class KakimonDB extends Dexie {
       studySession: "id, pluginId, completedAt",
       settings: "id",
     });
+    // v2: 図鑑（お墓）テーブル追加。死亡時に転記する。
+    this.version(2)
+      .stores({
+        monster: "id, stage, lifeState",
+        wallet: "id",
+        inventory: "[itemId+kind], kind",
+        studySession: "id, pluginId, completedAt",
+        settings: "id",
+        graveyard: "id, diedAt",
+      })
+      .upgrade(async (tx) => {
+        // v1 時点の Monster には totalSessions が無いので 0 で埋める。
+        // 既存セッション数をカウントして合算する（履歴持ち越し設計に合わせる）。
+        const sessionCount = await tx.table("studySession").count();
+        await tx
+          .table("monster")
+          .toCollection()
+          .modify((row: Monster) => {
+            if (typeof row.totalSessions !== "number") {
+              row.totalSessions = sessionCount;
+            }
+          });
+      });
   }
 }
 

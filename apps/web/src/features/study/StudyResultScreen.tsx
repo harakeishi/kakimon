@@ -9,6 +9,7 @@ interface ResultState {
     exp: number;
     leveledUp: boolean;
     wasDeceased: boolean;
+    didHatch: boolean;
   };
   score: number;
   questionCount: number;
@@ -42,12 +43,31 @@ export function StudyResultScreen() {
     <>
       <section className="card center">
         <EmojiIcon
-          emoji={state.reward.wasDeceased ? "🌸" : "🎉"}
+          emoji={
+            state.reward.wasDeceased
+              ? "🌸"
+              : state.reward.didHatch
+                ? "🐣"
+                : "🎉"
+          }
           size={72}
           alt=""
         />
-        <h1 style={{ margin: 0 }}>{cheer}</h1>
+        <h1 style={{ margin: 0 }}>
+          {state.reward.didHatch ? "タマゴが かえった！" : cheer}
+        </h1>
         <p className="muted">{state.pluginName} {state.questionCount}もん</p>
+
+        {state.reward.didHatch && (
+          <div className="card" style={{ marginTop: 12 }}>
+            <div style={{ fontSize: "1.1rem" }}>
+              あたらしい なかまが うまれたよ！
+            </div>
+            <p className="muted" style={{ margin: "8px 0 0" }}>
+              ホームに もどって、なまえを つけてあげよう
+            </p>
+          </div>
+        )}
 
         <div className="card" style={{ marginTop: 16 }}>
           <div style={{ fontSize: "1.1rem" }}>できばえ</div>

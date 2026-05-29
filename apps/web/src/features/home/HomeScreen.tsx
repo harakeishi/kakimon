@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useGameStore } from "../../state/gameStore";
 import { FOODS } from "../../domain/catalog/foods";
 import { countOf } from "../../domain/inventory";
 import type { Monster } from "../../domain/monster";
+import { isEgg, needsNaming } from "../../domain/monster";
 import { EmojiIcon } from "../../components/EmojiIcon";
 import { MonsterSprite } from "../../components/MonsterSprite";
+import { NameMonsterModal } from "./NameMonsterModal";
 
 const LIFE_STATE_LABELS: Record<Monster["lifeState"], string> = {
   healthy: "げんき",
@@ -22,10 +24,34 @@ export function HomeScreen() {
   const petMonster = useGameStore((s) => s.petMonster);
   const feedWith = useGameStore((s) => s.feedWith);
   const rebirth = useGameStore((s) => s.rebirth);
+  const nameMonster = useGameStore((s) => s.nameMonster);
   const [confirmRebirth, setConfirmRebirth] = useState(false);
+  const [showFarewell, setShowFarewell] = useState(false);
+
+  // 死亡を検知したら「お別れ」モーダルを 1 度だけ出す。
+  useEffect(() => {
+    if (monster?.lifeState === "deceased") {
+      setShowFarewell(true);
+    } else {
+      setShowFarewell(false);
+    }
+  }, [monster?.id, monster?.lifeState]);
+
+  const careNeeded = useMemo(() => {
+    if (!monster) return false;
+    if (isEgg(monster)) return false;
+    return (
+      monster.lifeState === "weak" ||
+      monster.lifeState === "sick" ||
+      monster.lifeState === "dying"
+    );
+  }, [monster]);
 
   if (!monster) return null;
   const isDeceased = monster.lifeState === "deceased";
+  const egg = isEgg(monster);
+  const naming = needsNaming(monster);
+  const dying = monster.lifeState === "dying";
 
   const hungerBar = barClass(100 - monster.condition.hunger);
   const moodBar = barClass(monster.condition.mood);
@@ -33,24 +59,27 @@ export function HomeScreen() {
     ? Math.round((monster.stats.hp / monster.stats.maxHp) * 100)
     : 0;
   const hpBar = barClass(hpRatio);
+  const displayName = monster.name || (egg ? "タマゴ" : "?");
 
   return (
     <>
       <header className="status-bar">
-        <StatusCell label="HP" value={`${monster.stats.hp}/${monster.stats.maxHp}`} />
-        <StatusCell label="レベル" value={`${monster.level}`} />
-        <StatusCell label="つぎまで" value={`${monster.expToNext - monster.exp}`} />
+        <StatusCell label="HP" value={egg ? "—" : `${monster.stats.hp}/${monster.stats.maxHp}`} />
+        <StatusCell label="レベル" value={egg ? "—" : `${monster.level}`} />
+        <StatusCell label="つぎまで" value={egg ? "—" : `${monster.expToNext - monster.exp}`} />
         <StatusCell label="コイン" value={`${wallet.coins}`} />
       </header>
 
-      {monster.lifeState !== "healthy" && !isDeceased && (
-        <div
-          className={`warn-banner ${
-            monster.lifeState === "dying" ? "" : "sick"
-          }`}
-        >
-          {monster.name} は {LIFE_STATE_LABELS[monster.lifeState]}。
-          おせわ してあげよう。
+      {egg && (
+        <div className="warn-banner sick">
+          タマゴだよ。<strong>「べんきょう」</strong>すると ふかして うまれるよ！
+        </div>
+      )}
+
+      {careNeeded && (
+        <div className={`warn-banner${dying ? "" : " sick"}`}>
+          {displayName} は {LIFE_STATE_LABELS[monster.lifeState]}。
+          {dying ? " いますぐ おせわ してあげて！" : " おせわ してあげよう。"}
         </div>
       )}
 
@@ -58,7 +87,7 @@ export function HomeScreen() {
         <div className="card center">
           <EmojiIcon emoji="🌸" size={64} alt="" />
           <h2 style={{ margin: "8px 0 4px" }}>
-            {monster.name} は おやすみちゅう
+            {displayName} は おやすみちゅう
           </h2>
           <p className="muted" style={{ marginTop: 0 }}>
             これまで ありがとう。
@@ -80,27 +109,47 @@ export function HomeScreen() {
 
       <section className="monster-stage">
         <div className="monster-state-badge">
-          {LIFE_STATE_LABELS[monster.lifeState]}
+          {egg ? "タマゴ" : LIFE_STATE_LABELS[monster.lifeState]}
         </div>
         <div
           className="monster-art"
-          onClick={isDeceased ? undefined : () => void petMonster()}
-          role={isDeceased ? undefined : "button"}
+          onClick={egg || isDeceased ? undefined : () => void petMonster()}
+          role={egg || isDeceased ? undefined : "button"}
           aria-label={
-            isDeceased
-              ? `${monster.name} は おやすみちゅう`
-              : `${monster.name} を なでる`
+            egg
+              ? "タマゴ"
+              : isDeceased
+                ? `${displayName} は おやすみちゅう`
+                : `${displayName} を なでる`
           }
-          style={isDeceased ? { cursor: "default" } : undefined}
+          style={egg || isDeceased ? { cursor: "default" } : undefined}
         >
-          <MonsterSprite monster={monster} size={160} />
+          <MonsterSprite monster={monster} size={160} animated />
         </div>
       </section>
 
-      {!isDeceased && (
+      {/* 卵期は ふだんの UI を一切出さず「べんきょう」だけが目立つようにする */}
+      {egg ? (
+        <>
+          <section className="card center">
+            <h2 style={{ margin: 0 }}>もうすぐ うまれるよ</h2>
+            <p className="muted" style={{ marginTop: 4 }}>
+              はじめての べんきょうで タマゴが かえるよ
+            </p>
+          </section>
+          <Link
+            to="/study"
+            className="btn btn--big btn--block btn--secondary"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+          >
+            <EmojiIcon emoji="📚" size={28} alt="" />
+            <span>べんきょう を はじめる</span>
+          </Link>
+        </>
+      ) : !isDeceased ? (
         <>
           <section className="card">
-            <h2 style={{ margin: 0 }}>{monster.name}</h2>
+            <h2 style={{ margin: 0 }}>{displayName}</h2>
             <div className="muted" style={{ marginBottom: 10 }}>
               {LIFE_STATE_LABELS[monster.lifeState]} ・ Lv{monster.level}
             </div>
@@ -118,22 +167,45 @@ export function HomeScreen() {
             />
           </section>
 
+          {/* dying のときは「べんきょう」より「おせわ」優先 */}
           <section className="actions-grid">
-            <Link to="/study" className="btn btn--big btn--secondary action-btn">
-              <EmojiIcon emoji="📚" size={28} alt="" />
-              <span>べんきょう</span>
-            </Link>
-            <Link to="/shop" className="btn btn--big action-btn">
-              <EmojiIcon emoji="🛍" size={28} alt="" />
-              <span>ショップ</span>
-            </Link>
-            <button
-              className="btn btn--big btn--ghost action-btn"
-              onClick={() => void petMonster()}
-            >
-              <EmojiIcon emoji="🤗" size={28} alt="" />
-              <span>なでる</span>
-            </button>
+            {dying ? (
+              <>
+                <button
+                  className="btn btn--big btn--secondary action-btn"
+                  onClick={() => void petMonster()}
+                >
+                  <EmojiIcon emoji="🤗" size={28} alt="" />
+                  <span>なでる</span>
+                </button>
+                <Link to="/shop" className="btn btn--big action-btn">
+                  <EmojiIcon emoji="🛍" size={28} alt="" />
+                  <span>ショップ</span>
+                </Link>
+                <Link to="/study" className="btn btn--big btn--ghost action-btn">
+                  <EmojiIcon emoji="📚" size={28} alt="" />
+                  <span>べんきょう</span>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/study" className="btn btn--big btn--secondary action-btn">
+                  <EmojiIcon emoji="📚" size={28} alt="" />
+                  <span>べんきょう</span>
+                </Link>
+                <Link to="/shop" className="btn btn--big action-btn">
+                  <EmojiIcon emoji="🛍" size={28} alt="" />
+                  <span>ショップ</span>
+                </Link>
+                <button
+                  className="btn btn--big btn--ghost action-btn"
+                  onClick={() => void petMonster()}
+                >
+                  <EmojiIcon emoji="🤗" size={28} alt="" />
+                  <span>なでる</span>
+                </button>
+              </>
+            )}
           </section>
 
           <section className="card">
@@ -166,6 +238,39 @@ export function HomeScreen() {
             </div>
           </section>
         </>
+      ) : null}
+
+      {/* 命名モーダル: 孵化済み・名前空のときに自動表示。閉じられない（必須）。 */}
+      {naming && (
+        <NameMonsterModal
+          onSubmit={async (name) => {
+            await nameMonster(name);
+          }}
+        />
+      )}
+
+      {/* お別れモーダル（deceased 初回検知時に 1 度だけ） */}
+      {isDeceased && showFarewell && (
+        <div
+          className="modal-mask"
+          onClick={() => setShowFarewell(false)}
+        >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <EmojiIcon emoji="🌸" size={72} alt="" />
+            <h2>{displayName} と おわかれ</h2>
+            <p className="muted" style={{ marginBottom: 16 }}>
+              いっしょに がんばった じかんを ありがとう。
+              <br />
+              {displayName} は ずっと ずかんに のこるよ。
+            </p>
+            <button
+              className="btn btn--block btn--success"
+              onClick={() => setShowFarewell(false)}
+            >
+              ありがとう
+            </button>
+          </div>
+        </div>
       )}
 
       {confirmRebirth && (
@@ -174,7 +279,7 @@ export function HomeScreen() {
             <EmojiIcon emoji="🥚" size={64} alt="" />
             <h2>あたらしい タマゴで はじめる？</h2>
             <p className="muted">
-              {monster.name} は ずかんに のこるよ。
+              {displayName} は ずかんに のこるよ。
             </p>
             <div className="row" style={{ marginTop: 16, gap: 10 }}>
               <button

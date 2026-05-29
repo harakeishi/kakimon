@@ -15,30 +15,41 @@ export interface MonsterSpriteProps {
   monster: Pick<Monster, "stage" | "lifeState" | "name">;
   size?: number;
   className?: string;
+  /** 卵を揺らす演出を付けるか（ホーム画面のみ） */
+  animated?: boolean;
 }
 
 export function MonsterSprite({
   monster,
   size = 128,
   className,
+  animated = false,
 }: MonsterSpriteProps) {
   if (monster.lifeState === "deceased") {
     return (
       <EmojiIcon
         emoji="🌸"
         size={size}
-        alt={`${monster.name} は おやすみちゅう`}
+        alt={`${monster.name || "モンスター"} は おやすみちゅう`}
         className={className}
         style={{ opacity: 0.7 }}
       />
     );
   }
+  const cls = [
+    className,
+    animated && monster.stage === "egg" ? "sprite--egg-wiggle" : null,
+    animated && monster.lifeState === "dying" ? "sprite--dying" : null,
+    animated && monster.lifeState === "sick" ? "sprite--sick" : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
     <EmojiIcon
       emoji={STAGE_EMOJI[monster.stage]}
       size={size}
-      alt={monster.name}
-      className={className}
+      alt={monster.name || "タマゴ"}
+      className={cls}
     />
   );
 }
