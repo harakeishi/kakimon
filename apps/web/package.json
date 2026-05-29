@@ -1,0 +1,37 @@
+{
+  "name": "@kakimon/web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "sync-assets": "node scripts/sync-kakitori-data.mjs && node scripts/sync-emoji.mjs",
+    "predev": "pnpm sync-assets",
+    "dev": "vite",
+    "prebuild": "pnpm sync-assets",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --port 4173",
+    "typecheck": "tsc -b --emitDeclarationOnly false"
+  },
+  "dependencies": {
+    "@k1low/hanzi-writer-data-jp": "0.8.0",
+    "@k1low/kakitori-data": "0.8.0",
+    "@kakimon/plugin-api": "workspace:*",
+    "@kakimon/plugin-writing-hiragana": "workspace:*",
+    "@kakimon/plugin-writing-number": "workspace:*",
+    "dexie": "4.0.10",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.28.0",
+    "zustand": "5.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.1",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@vitejs/plugin-react": "4.3.3",
+    "openmoji": "17.0.0",
+    "typescript": "5.6.3",
+    "vite": "5.4.11",
+    "vite-plugin-pwa": "0.21.1"
+  }
+}
