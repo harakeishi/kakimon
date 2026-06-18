@@ -57,13 +57,11 @@ export function ShopScreen() {
                 className="btn"
                 disabled={!canBuy}
                 onClick={() =>
-                  food.price >= 20
-                    ? setConfirm({
-                        foodId: food.id,
-                        name: food.name,
-                        price: food.price,
-                      })
-                    : handleBuy(food.id)
+                  setConfirm({
+                    foodId: food.id,
+                    name: food.name,
+                    price: food.price,
+                  })
                 }
               >
                 <EmojiIcon emoji="💰" size={18} alt="" />
