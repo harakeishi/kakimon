@@ -27,6 +27,27 @@ export function HomeScreen() {
   const nameMonster = useGameStore((s) => s.nameMonster);
   const [confirmRebirth, setConfirmRebirth] = useState(false);
   const [showFarewell, setShowFarewell] = useState(false);
+  // 「ごはんを たべている」演出用。クリックのたびに key を更新して
+  // CSS アニメーションを最初から再生させる。
+  const [feeding, setFeeding] = useState<{ icon: string; key: number } | null>(
+    null
+  );
+
+  // ごはんをあげる: 在庫消費＆効果適用に加えて、たべる演出を出す。
+  async function handleFeed(foodId: string, icon: string) {
+    // 先に演出を出して即座に反応を返す（DB 書き込みを待たない）。
+    setFeeding({ icon, key: Date.now() });
+    const ok = await feedWith(foodId);
+    if (!ok) setFeeding(null);
+  }
+
+  // 演出の終了でフラグを下ろす。prefers-reduced-motion などで
+  // onAnimationEnd が発火しないケースに備え、タイマーでも必ず解除する。
+  useEffect(() => {
+    if (!feeding) return;
+    const t = window.setTimeout(() => setFeeding(null), 1300);
+    return () => window.clearTimeout(t);
+  }, [feeding]);
 
   // 死亡を検知したら「お別れ」モーダルを 1 度だけ出す。
   useEffect(() => {
@@ -112,7 +133,7 @@ export function HomeScreen() {
           {egg ? "タマゴ" : LIFE_STATE_LABELS[monster.lifeState]}
         </div>
         <div
-          className="monster-art"
+          className={`monster-art${feeding ? " monster-art--eating" : ""}`}
           onClick={egg || isDeceased ? undefined : () => void petMonster()}
           role={egg || isDeceased ? undefined : "button"}
           aria-label={
@@ -126,6 +147,16 @@ export function HomeScreen() {
         >
           <MonsterSprite monster={monster} size={160} animated />
         </div>
+        {feeding && (
+          <div
+            className="feed-anim"
+            key={feeding.key}
+            aria-hidden
+            onAnimationEnd={() => setFeeding(null)}
+          >
+            <EmojiIcon emoji={feeding.icon} size={64} alt="" />
+          </div>
+        )}
       </section>
 
       {/* 卵期は ふだんの UI を一切出さず「べんきょう」だけが目立つようにする */}
@@ -227,8 +258,8 @@ export function HomeScreen() {
                     </div>
                     <button
                       className="btn"
-                      disabled={owned <= 0}
-                      onClick={() => void feedWith(food.id)}
+                      disabled={owned <= 0 || feeding !== null}
+                      onClick={() => void handleFeed(food.id, food.icon)}
                     >
                       あげる
                     </button>

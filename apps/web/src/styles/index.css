@@ -457,6 +457,51 @@ h3 {
   animation: dying-pulse 1.6s ease-in-out infinite;
 }
 
+/* ごはんを たべる演出 ─────────────────────────────────── */
+/* モンスターが もぐもぐ する（縦横にプヨっと揺れる）。 */
+@keyframes monster-munch {
+  0%, 100% { transform: scale(1, 1); }
+  15% { transform: scale(1.08, 0.9); }
+  30% { transform: scale(0.94, 1.08); }
+  45% { transform: scale(1.06, 0.94); }
+  60% { transform: scale(0.96, 1.05); }
+  80% { transform: scale(1.02, 0.98); }
+}
+.monster-art--eating {
+  animation: monster-munch 1.1s ease-in-out;
+  transform-origin: 50% 80%;
+}
+
+/* ごはんが 上から おりてきて 口もとで パクッと 消える。 */
+@keyframes feed-toss {
+  0% {
+    transform: translate(-50%, -130px) scale(0.6) rotate(-14deg);
+    opacity: 0;
+  }
+  20% { opacity: 1; }
+  55% {
+    transform: translate(-50%, 6px) scale(1) rotate(8deg);
+    opacity: 1;
+  }
+  72% {
+    transform: translate(-50%, 6px) scale(0.92) rotate(-4deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, 18px) scale(0.15) rotate(0);
+    opacity: 0;
+  }
+}
+.feed-anim {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+  z-index: 3;
+  animation: feed-toss 1.1s ease-in forwards;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.15));
+}
+
 /* 管理者（保護者）モード ─────────────────────────────── */
 .admin-fab {
   position: fixed;
@@ -530,9 +575,11 @@ h3 {
 
 @media (prefers-reduced-motion: reduce) {
   .monster-art,
+  .monster-art--eating,
   .sprite--egg-wiggle,
   .sprite--sick,
-  .sprite--dying {
+  .sprite--dying,
+  .feed-anim {
     transition: none;
     animation: none;
   }
