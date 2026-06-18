@@ -13,3 +13,5 @@ coverage
 apps/web/public/kakitori/
 # openmoji の SVG は scripts/sync-emoji.mjs で都度同期する
 apps/web/public/emoji/
+# ローカルデプロイ用ディレクトリ
+deploy/
