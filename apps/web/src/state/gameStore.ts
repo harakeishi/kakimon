@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Monster } from "../domain/monster";
+import type { LifeState, Monster, MonsterStage } from "../domain/monster";
 import {
   feed as feedMonster,
   gainExp,
@@ -27,6 +27,28 @@ import {
 } from "../infra/db/repositories";
 import { db } from "../infra/db/dexie";
 import { FOODS, findFood } from "../domain/catalog/foods";
+
+/**
+ * 管理者（保護者）モードでモンスターのステータスを直接書き換えるためのパッチ。
+ * 指定したフィールドだけ上書きする。通常のゲームロジック（tick / お世話 / 学習）を
+ * 経由せず値を設定できる、デバッグ・調整用の経路。
+ */
+export interface AdminMonsterPatch {
+  hp?: number;
+  maxHp?: number;
+  level?: number;
+  exp?: number;
+  expToNext?: number;
+  attack?: number;
+  defense?: number;
+  speed?: number;
+  smart?: number;
+  hunger?: number;
+  mood?: number;
+  cleanliness?: number;
+  lifeState?: LifeState;
+  stage?: MonsterStage;
+}
 
 interface GameState {
   ready: boolean;
@@ -60,6 +82,16 @@ interface GameState {
    * docs/04-domain-model.md 4.4 節「死亡からの再スタート」と一致。
    */
   rebirth: () => Promise<void>;
+  /** 管理者モード: コイン残高を直接設定する */
+  adminSetCoins: (coins: number) => Promise<void>;
+  /** 管理者モード: モンスターのステータスを直接書き換える */
+  adminPatchMonster: (patch: AdminMonsterPatch) => Promise<void>;
+  /** 管理者モード: 所持アイテム数を直接設定する（0 で削除） */
+  adminSetItemCount: (
+    itemId: string,
+    kind: "food" | "equipment",
+    count: number
+  ) => Promise<void>;
 }
 
 // init() / bootstrap 系の二重起動を防ぐためのプロセス内 promise キャッシュ。
@@ -282,7 +314,74 @@ export const useGameStore = create<GameState>((set, get) => ({
       rebirthInflight = null;
     }
   },
+
+  async adminSetCoins(coins) {
+    const { wallet } = get();
+    const next: Wallet = { ...wallet, coins: Math.max(0, Math.floor(coins)) };
+    await walletRepo.save(next);
+    set({ wallet: next });
+  },
+
+  async adminPatchMonster(patch) {
+    const m = get().monster;
+    if (!m) return;
+    const num = (v: number | undefined, fallback: number) =>
+      typeof v === "number" && Number.isFinite(v) ? v : fallback;
+
+    const maxHp = Math.max(1, Math.round(num(patch.maxHp, m.stats.maxHp)));
+    const next: Monster = {
+      ...m,
+      level: Math.max(1, Math.round(num(patch.level, m.level))),
+      exp: Math.max(0, Math.round(num(patch.exp, m.exp))),
+      expToNext: Math.max(1, Math.round(num(patch.expToNext, m.expToNext))),
+      stage: patch.stage ?? m.stage,
+      lifeState: patch.lifeState ?? m.lifeState,
+      stats: {
+        ...m.stats,
+        maxHp,
+        hp: clampInt(num(patch.hp, m.stats.hp), 0, maxHp),
+        attack: Math.max(0, Math.round(num(patch.attack, m.stats.attack))),
+        defense: Math.max(0, Math.round(num(patch.defense, m.stats.defense))),
+        speed: Math.max(0, Math.round(num(patch.speed, m.stats.speed))),
+        smart: Math.max(0, Math.round(num(patch.smart, m.stats.smart))),
+      },
+      condition: {
+        hunger: clampInt(num(patch.hunger, m.condition.hunger), 0, 100),
+        mood: clampInt(num(patch.mood, m.condition.mood), 0, 100),
+        cleanliness: clampInt(
+          num(patch.cleanliness, m.condition.cleanliness),
+          0,
+          100
+        ),
+      },
+      // deceased から生き返らせた場合は dying タイマーをリセットしておく。
+      dyingSince:
+        patch.lifeState && patch.lifeState !== "dying" ? null : m.dyingSince,
+    };
+    await monsterRepo.save(next);
+    set({ monster: next });
+  },
+
+  async adminSetItemCount(itemId, kind, count) {
+    const { inventory } = get();
+    const target = Math.max(0, Math.floor(count));
+    const others = inventory.entries.filter(
+      (e) => !(e.itemId === itemId && e.kind === kind)
+    );
+    const next: Inventory =
+      target <= 0
+        ? { entries: others }
+        : { entries: [...others, { itemId, kind, count: target }] };
+    await inventoryRepo.save(next);
+    set({ inventory: next });
+  },
 }));
+
+function clampInt(v: number, min: number, max: number): number {
+  const r = Math.round(v);
+  if (Number.isNaN(r)) return min;
+  return Math.max(min, Math.min(max, r));
+}
 
 /**
  * tick / init で deceased を検知したら、まだお墓に記録していなければ追加する。

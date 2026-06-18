@@ -6,6 +6,7 @@ import { StudySelectScreen } from "./features/study/StudySelectScreen";
 import { StudyPlayScreen } from "./features/study/StudyPlayScreen";
 import { StudyResultScreen } from "./features/study/StudyResultScreen";
 import { ShopScreen } from "./features/shop/ShopScreen";
+import { AdminMode } from "./features/admin/AdminMode";
 import { EmojiIcon } from "./components/EmojiIcon";
 
 export function App() {
@@ -58,6 +59,7 @@ export function App() {
         <Route path="/shop" element={<ShopScreen />} />
         <Route path="*" element={<HomeScreen />} />
       </Routes>
+      <AdminMode />
     </div>
   );
 }
