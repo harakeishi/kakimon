@@ -390,6 +390,68 @@ h3 {
   font-size: 0.95rem;
 }
 
+/* やさしいはんてい トグル ───────────────────────────── */
+.lenient-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 4px 0 6px;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  font-family: inherit;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.lenient-toggle.is-on {
+  background: #ecfdf5;
+  border-color: var(--good);
+}
+.lenient-toggle:active {
+  transform: translateY(1px);
+}
+.lenient-toggle__text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lenient-toggle__title {
+  font-weight: 700;
+  font-size: 1rem;
+}
+.lenient-toggle__hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.lenient-toggle__switch {
+  flex-shrink: 0;
+  width: 52px;
+  height: 30px;
+  border-radius: 999px;
+  background: #d1d5db;
+  padding: 3px;
+  transition: background 0.15s ease;
+}
+.lenient-toggle.is-on .lenient-toggle__switch {
+  background: var(--good);
+}
+.lenient-toggle__knob {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+.lenient-toggle.is-on .lenient-toggle__knob {
+  transform: translateX(22px);
+}
+
 /* 命名モーダル ─────────────────────────────────────── */
 .name-input {
   width: 100%;

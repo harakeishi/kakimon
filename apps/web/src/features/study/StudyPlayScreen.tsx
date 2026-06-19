@@ -14,6 +14,27 @@ import { useGameStore } from "../../state/gameStore";
 // に対応。MVP では一律 10 分を上限とする。
 const SESSION_WATCHDOG_MS = 10 * 60 * 1000;
 
+// 「やさしいはんてい」モードの保存キー。なぞりの判定が厳しすぎて小さい子が
+// 飽きてしまうため、保護者が ON にすると判定を緩める。プラグインへは
+// SessionConfig.options.lenient として渡る。設定はデバイスに残す（localStorage）。
+const LENIENT_STORAGE_KEY = "kakimon.lenientJudge";
+
+function loadLenient(): boolean {
+  try {
+    return localStorage.getItem(LENIENT_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveLenient(value: boolean): void {
+  try {
+    localStorage.setItem(LENIENT_STORAGE_KEY, value ? "1" : "0");
+  } catch {
+    // localStorage が使えない環境(プライベートモード等)でも続行する
+  }
+}
+
 interface FinalizeArgs {
   difficulty: DifficultyOption;
   pluginId: string;
@@ -30,6 +51,7 @@ export function StudyPlayScreen() {
   const applyReward = useGameStore((s) => s.applyReward);
 
   const [difficulty, setDifficulty] = useState<DifficultyOption | null>(null);
+  const [lenient, setLenient] = useState<boolean>(loadLenient);
   const [progressLabel, setProgressLabel] = useState("");
   const targetRef = useRef<HTMLDivElement | null>(null);
   const handleRef = useRef<{ dispose(): void } | null>(null);
@@ -79,7 +101,12 @@ export function StudyPlayScreen() {
     try {
       handle = plugin.startSession(
         target,
-        { difficulty: difficulty.key, questionCount: 5 },
+        {
+          difficulty: difficulty.key,
+          questionCount: 5,
+          // やさしいはんていモード。プラグインがなぞり判定の許容度を上げる。
+          options: { lenient },
+        },
         ctx
       );
     } catch (err) {
@@ -193,6 +220,27 @@ export function StudyPlayScreen() {
         <p className="muted" style={{ margin: "0 4px" }}>
           コースを えらんでね
         </p>
+        <button
+          type="button"
+          className={`lenient-toggle${lenient ? " is-on" : ""}`}
+          role="switch"
+          aria-checked={lenient}
+          onClick={() => {
+            const next = !lenient;
+            setLenient(next);
+            saveLenient(next);
+          }}
+        >
+          <span className="lenient-toggle__text">
+            <span className="lenient-toggle__title">やさしい はんてい</span>
+            <span className="lenient-toggle__hint">
+              ちいさい こ むけ。はんていを ゆるくするよ
+            </span>
+          </span>
+          <span className="lenient-toggle__switch" aria-hidden>
+            <span className="lenient-toggle__knob" />
+          </span>
+        </button>
         {levels.map((lv) => (
           <section key={lv} className="card" style={{ padding: 12 }}>
             <h3 style={{ margin: "0 0 8px" }}>レベル {lv}</h3>
