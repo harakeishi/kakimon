@@ -2,7 +2,7 @@ import Dexie from "dexie";
 import type { Table } from "dexie";
 import type { Monster } from "../../domain/monster";
 import type { Wallet } from "../../domain/wallet";
-import type { InventoryEntry } from "../../domain/inventory";
+import type { InventoryEntry, ItemKind } from "../../domain/inventory";
 import type { StudySession } from "../../domain/studySession";
 import type { GraveRecord } from "../../domain/graveyard";
 
@@ -10,15 +10,17 @@ interface WalletRow extends Wallet {
   id: "singleton";
 }
 
+// settings テーブルの 1 行。id をキーに値を 1 つだけ持つ汎用ストア
+// （例: id:"room" にへやのもようがえ状態）。
 interface SingletonRow<T> {
-  id: "singleton";
+  id: string;
   value: T;
 }
 
 export class KakimonDB extends Dexie {
   monster!: Table<Monster, string>;
   wallet!: Table<WalletRow, string>;
-  inventory!: Table<InventoryEntry, [string, "food" | "equipment"]>;
+  inventory!: Table<InventoryEntry, [string, ItemKind]>;
   studySession!: Table<StudySession, string>;
   settings!: Table<SingletonRow<unknown>, string>;
   graveyard!: Table<GraveRecord, string>;
