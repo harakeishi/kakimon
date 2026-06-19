@@ -8,6 +8,10 @@ import type {
 } from "@kakimon/plugin-api";
 import { calculateReward } from "../../domain/rewardCalculator";
 import { useGameStore } from "../../state/gameStore";
+import {
+  MonsterCheerOverlay,
+  type CheerReaction,
+} from "../../components/MonsterCheerOverlay";
 
 // プラグインがハングした場合の watchdog。
 // docs/03-plugin-architecture.md「呼ばれない場合のタイムアウトは Host 側で扱う」
@@ -49,6 +53,7 @@ export function StudyPlayScreen() {
     [pluginId]
   );
   const applyReward = useGameStore((s) => s.applyReward);
+  const monster = useGameStore((s) => s.monster);
 
   const [difficulty, setDifficulty] = useState<DifficultyOption | null>(null);
   const [lenient, setLenient] = useState<boolean>(loadLenient);
@@ -56,6 +61,9 @@ export function StudyPlayScreen() {
   const targetRef = useRef<HTMLDivElement | null>(null);
   const handleRef = useRef<{ dispose(): void } | null>(null);
   const [showQuit, setShowQuit] = useState(false);
+  // 1 問ごとの成否を受けて、右下のモンスターに応援させる。
+  const [reaction, setReaction] = useState<CheerReaction | null>(null);
+  const reactionNonce = useRef(0);
 
   useEffect(() => {
     if (!plugin) return;
@@ -93,6 +101,10 @@ export function StudyPlayScreen() {
       },
       reportProgress: (p) => {
         setProgressLabel(p.label ?? "");
+      },
+      reportOutcome: (o) => {
+        reactionNonce.current += 1;
+        setReaction({ correct: o.correct, nonce: reactionNonce.current });
       },
       locale: "ja",
     };
@@ -277,6 +289,10 @@ export function StudyPlayScreen() {
       <section className="card" style={{ padding: 12 }}>
         <div ref={targetRef} />
       </section>
+
+      {monster && (
+        <MonsterCheerOverlay monster={monster} reaction={reaction} />
+      )}
 
       {showQuit && (
         <div className="modal-mask" onClick={() => setShowQuit(false)}>
