@@ -15,8 +15,15 @@ import {
 } from "../domain/monster";
 import type { Wallet } from "../domain/wallet";
 import { earn, spend } from "../domain/wallet";
-import type { Inventory } from "../domain/inventory";
+import type { Inventory, ItemKind } from "../domain/inventory";
 import { addItem, countOf, removeItem } from "../domain/inventory";
+import type { Room } from "../domain/room";
+import {
+  createInitialRoom,
+  setFloor,
+  setWallpaper,
+  toggleFurniture,
+} from "../domain/room";
 import type { StudySession } from "../domain/studySession";
 import type { GraveRecord } from "../domain/graveyard";
 import { buildGraveRecord } from "../domain/graveyard";
@@ -25,12 +32,14 @@ import {
   graveyardRepo,
   inventoryRepo,
   monsterRepo,
+  roomRepo,
   studySessionRepo,
   walletRepo,
 } from "../infra/db/repositories";
 import { db } from "../infra/db/dexie";
 import { FOODS, findFood } from "../domain/catalog/foods";
 import { COSMETICS, findCosmetic } from "../domain/catalog/cosmetics";
+import { INTERIORS, findInterior } from "../domain/catalog/interior";
 
 /**
  * 管理者（保護者）モードでモンスターのステータスを直接書き換えるためのパッチ。
@@ -59,6 +68,8 @@ interface GameState {
   monster: Monster | null;
   wallet: Wallet;
   inventory: Inventory;
+  /** へやのもようがえ状態（壁紙・床・家具） */
+  room: Room;
   recentSessions: StudySession[];
   graves: GraveRecord[];
   init: () => Promise<void>;
@@ -72,6 +83,14 @@ interface GameState {
   equipCosmetic: (itemId: string) => Promise<boolean>;
   /** 指定スロットの装備をはずす。 */
   unequipSlot: (slot: EquipSlot) => Promise<void>;
+  /** へやのもよう（壁紙・床・家具）を買う。すでに持っていれば false。 */
+  buyInterior: (itemId: string) => Promise<boolean>;
+  /** 壁紙を貼る。所有していなければ false。 */
+  applyWallpaper: (itemId: string) => Promise<boolean>;
+  /** 床を敷く。所有していなければ false。 */
+  applyFloor: (itemId: string) => Promise<boolean>;
+  /** 家具を飾る／しまうをトグルする。所有していなければ false。 */
+  toggleFurniture: (itemId: string) => Promise<boolean>;
   applyReward: (
     session: StudySession
   ) => Promise<{
@@ -99,7 +118,7 @@ interface GameState {
   /** 管理者モード: 所持アイテム数を直接設定する（0 で削除） */
   adminSetItemCount: (
     itemId: string,
-    kind: "food" | "equipment",
+    kind: ItemKind,
     count: number
   ) => Promise<void>;
 }
@@ -114,6 +133,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   monster: null,
   wallet: { coins: 0, lifetimeEarned: 0, lifetimeSpent: 0 },
   inventory: { entries: [] },
+  room: createInitialRoom(),
   recentSessions: [],
   graves: [],
 
@@ -121,7 +141,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (get().ready) return;
     if (initInflight) return initInflight;
     initInflight = (async () => {
-      const { monster, wallet, inventory } = await bootstrapIfEmpty();
+      const { monster, wallet, inventory, room } = await bootstrapIfEmpty();
       const ticked = tickMonster(monster, Date.now());
       // 起動時に deceased を検知したら、お墓に転記する（未記録なら）。
       const finalMonster = await commitDeathIfNeeded(ticked);
@@ -133,6 +153,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         monster: finalMonster,
         wallet,
         inventory,
+        room,
         recentSessions: recent,
         graves,
       });
@@ -260,6 +281,65 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ monster: next });
   },
 
+  async buyInterior(itemId) {
+    const item = findInterior(itemId);
+    if (!item) return false;
+    const { wallet, inventory } = get();
+    // もようがえは非消費。同じ物を 2 個持っても意味がないので所有済みなら買わない。
+    if (countOf(inventory, itemId, "interior") > 0) return false;
+    const spent = spend(wallet, item.price);
+    if (!spent) return false;
+    const added = addItem(inventory, itemId, "interior", 1);
+    try {
+      await db.transaction("rw", db.wallet, db.inventory, async () => {
+        await walletRepo.save(spent);
+        await inventoryRepo.save(added);
+      });
+    } catch (e) {
+      console.error("[gameStore.buyInterior] transaction failed:", e);
+      return false;
+    }
+    set({ wallet: spent, inventory: added });
+    return true;
+  },
+
+  async applyWallpaper(itemId) {
+    const { room, inventory } = get();
+    if (countOf(inventory, itemId, "interior") <= 0) return false;
+    const item = findInterior(itemId);
+    if (!item || item.category !== "wallpaper") return false;
+    const next = setWallpaper(room, itemId);
+    if (next === room) return true;
+    await roomRepo.save(next);
+    set({ room: next });
+    return true;
+  },
+
+  async applyFloor(itemId) {
+    const { room, inventory } = get();
+    if (countOf(inventory, itemId, "interior") <= 0) return false;
+    const item = findInterior(itemId);
+    if (!item || item.category !== "floor") return false;
+    const next = setFloor(room, itemId);
+    if (next === room) return true;
+    await roomRepo.save(next);
+    set({ room: next });
+    return true;
+  },
+
+  async toggleFurniture(itemId) {
+    const { room, inventory } = get();
+    if (countOf(inventory, itemId, "interior") <= 0) return false;
+    const item = findInterior(itemId);
+    if (!item || item.category !== "furniture") return false;
+    const next = toggleFurniture(room, itemId);
+    // 上限に達していて追加できなかった場合は参照が変わらない。
+    if (next === room) return false;
+    await roomRepo.save(next);
+    set({ room: next });
+    return true;
+  },
+
   async applyReward(session) {
     const { wallet, monster } = get();
     // 死んだモンスターはコインも経験値ももらえない (設計の死亡仕様に揃える)。
@@ -329,11 +409,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     await inventoryRepo.save({ entries: [] });
     await studySessionRepo.clear();
     await graveyardRepo.clear();
+    await roomRepo.clear();
     const fresh = await bootstrapIfEmpty();
     set({
       monster: fresh.monster,
       wallet: fresh.wallet,
       inventory: fresh.inventory,
+      room: fresh.room,
       recentSessions: [],
       graves: [],
     });
@@ -358,6 +440,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         monster: fresh.monster,
         wallet: fresh.wallet,
         inventory: fresh.inventory,
+        // へやのもよう は再スタートでも持ち越す（Wallet / Inventory と同じ扱い）。
+        room: fresh.room,
         recentSessions: recent,
         graves,
       });
@@ -449,4 +533,4 @@ async function commitDeathIfNeeded(m: Monster): Promise<Monster> {
   return m;
 }
 
-export { FOODS, COSMETICS };
+export { FOODS, COSMETICS, INTERIORS };

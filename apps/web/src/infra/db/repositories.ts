@@ -3,10 +3,16 @@ import type { Monster } from "../../domain/monster";
 import { createInitialMonster } from "../../domain/monster";
 import type { Wallet } from "../../domain/wallet";
 import { createInitialWallet } from "../../domain/wallet";
-import type { Inventory, InventoryEntry } from "../../domain/inventory";
+import type {
+  Inventory,
+  InventoryEntry,
+  ItemKind,
+} from "../../domain/inventory";
 import { createInitialInventory } from "../../domain/inventory";
 import type { StudySession } from "../../domain/studySession";
 import type { GraveRecord } from "../../domain/graveyard";
+import type { Room } from "../../domain/room";
+import { createInitialRoom, normalizeRoom } from "../../domain/room";
 
 const MAX_SESSIONS = 1000;
 
@@ -69,7 +75,7 @@ export const inventoryRepo = {
     await db.transaction("rw", db.inventory, async () => {
       const existingKeys = (await db.inventory
         .toCollection()
-        .primaryKeys()) as [string, "food" | "equipment"][];
+        .primaryKeys()) as [string, ItemKind][];
       const nextKeyset = new Set<string>(
         inv.entries.map((e) => `${e.itemId}::${e.kind}`)
       );
@@ -95,6 +101,24 @@ export const graveyardRepo = {
   },
   async clear(): Promise<void> {
     await db.graveyard.clear();
+  },
+};
+
+// へやのもようがえ状態は settings テーブルに singleton で持つ。
+// 専用テーブルを足すとスキーマ migration が要るため、既存の settings を再利用する。
+const ROOM_SETTINGS_KEY = "room";
+
+export const roomRepo = {
+  async load(): Promise<Room> {
+    const row = await db.settings.get(ROOM_SETTINGS_KEY);
+    if (!row) return createInitialRoom();
+    return normalizeRoom(row.value);
+  },
+  async save(room: Room): Promise<void> {
+    await db.settings.put({ id: ROOM_SETTINGS_KEY, value: room });
+  },
+  async clear(): Promise<void> {
+    await db.settings.delete(ROOM_SETTINGS_KEY);
   },
 };
 
@@ -140,6 +164,7 @@ export async function bootstrapIfEmpty(): Promise<{
   monster: Monster;
   wallet: Wallet;
   inventory: Inventory;
+  room: Room;
 }> {
   const monster = await db.transaction(
     "rw",
@@ -168,5 +193,6 @@ export async function bootstrapIfEmpty(): Promise<{
     }
   );
   const inventory = await inventoryRepo.load();
-  return { monster, wallet, inventory };
+  const room = await roomRepo.load();
+  return { monster, wallet, inventory, room };
 }

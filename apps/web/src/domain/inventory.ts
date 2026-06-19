@@ -1,6 +1,12 @@
+// アイテムの種別。
+// - food: 餌（消費する）
+// - equipment: きせかえ（モンスターに装備、非消費）
+// - interior: へやのもよう（壁紙・床・家具、非消費）
+export type ItemKind = "food" | "equipment" | "interior";
+
 export interface InventoryEntry {
   itemId: string;
-  kind: "food" | "equipment";
+  kind: ItemKind;
   count: number;
 }
 
@@ -15,7 +21,7 @@ export function createInitialInventory(): Inventory {
 export function addItem(
   inv: Inventory,
   itemId: string,
-  kind: "food" | "equipment",
+  kind: ItemKind,
   amount = 1
 ): Inventory {
   const idx = inv.entries.findIndex(
@@ -33,7 +39,7 @@ export function addItem(
 export function removeItem(
   inv: Inventory,
   itemId: string,
-  kind: "food" | "equipment",
+  kind: ItemKind,
   amount = 1
 ): Inventory | null {
   const idx = inv.entries.findIndex(
@@ -55,7 +61,7 @@ export function removeItem(
 export function countOf(
   inv: Inventory,
   itemId: string,
-  kind: "food" | "equipment"
+  kind: ItemKind
 ): number {
   const entry = inv.entries.find(
     (e) => e.itemId === itemId && e.kind === kind

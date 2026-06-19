@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useGameStore } from "../../state/gameStore";
 import { FOODS } from "../../domain/catalog/foods";
+import { findInterior } from "../../domain/catalog/interior";
 import { countOf } from "../../domain/inventory";
 import type { Monster } from "../../domain/monster";
 import { isEgg, needsNaming } from "../../domain/monster";
@@ -23,6 +24,7 @@ export function HomeScreen() {
   const monster = useGameStore((s) => s.monster);
   const wallet = useGameStore((s) => s.wallet);
   const inventory = useGameStore((s) => s.inventory);
+  const room = useGameStore((s) => s.room);
   const petMonster = useGameStore((s) => s.petMonster);
   const feedWith = useGameStore((s) => s.feedWith);
   const rebirth = useGameStore((s) => s.rebirth);
@@ -81,6 +83,20 @@ export function HomeScreen() {
       setShowFarewell(false);
     }
   }, [monster?.id, monster?.lifeState]);
+
+  // へやのもよう（壁紙・床・家具）を解決する。未設定ならデフォルトの見た目。
+  const decor = useMemo(() => {
+    const wallpaper = room.wallpaperId
+      ? findInterior(room.wallpaperId)?.background ?? null
+      : null;
+    const floor = room.floorId
+      ? findInterior(room.floorId)?.background ?? null
+      : null;
+    const furniture = room.furnitureIds
+      .map((id) => findInterior(id))
+      .filter((i): i is NonNullable<typeof i> => !!i);
+    return { wallpaper, floor, furniture };
+  }, [room]);
 
   const careNeeded = useMemo(() => {
     if (!monster) return false;
@@ -152,7 +168,22 @@ export function HomeScreen() {
         </div>
       )}
 
-      <section className="monster-stage">
+      <section
+        className="monster-stage"
+        style={decor.wallpaper ? { background: decor.wallpaper } : undefined}
+      >
+        {decor.floor && (
+          <div className="room-floor" style={{ background: decor.floor }} aria-hidden />
+        )}
+        {decor.furniture.length > 0 && (
+          <div className="room-furniture" aria-hidden>
+            {decor.furniture.map((item) => (
+              <span className="room-furniture__item" key={item.id}>
+                <EmojiIcon emoji={item.icon} size={40} alt="" />
+              </span>
+            ))}
+          </div>
+        )}
         <div className="monster-state-badge">
           {egg ? "タマゴ" : LIFE_STATE_LABELS[monster.lifeState]}
         </div>

@@ -56,6 +56,25 @@ const EMOJI_CODEPOINTS = [
   "1F457", // 👗 dress
   "1F97C", // 🥼 lab coat
   "1F9F8", // 🧸 teddy bear
+
+  // へやのもようがえ
+  "1F6CB", // 🛋 couch and lamp (へやタブ)
+  // かべがみ
+  "1F7E8", // 🟨 yellow square
+  "1F7E6", // 🟦 blue square
+  "1F30C", // 🌌 milky way (よぞら)
+  // ゆか
+  "1F7EB", // 🟫 brown square (きの ゆか)
+  "1F331", // 🌱 seedling (くさ)
+  "1F7E9", // 🟩 green square (たたみ)
+  "1F7E5", // 🟥 red square (カーペット)
+  // かぐ
+  "1FAB4", // 🪴 potted plant
+  "1FA91", // 🪑 chair
+  "1F570", // 🕰 mantelpiece clock
+  "1FA94", // 🪔 diya lamp
+  "1F388", // 🎈 balloon
+  "1F335", // 🌵 cactus
 ];
 
 const pkgRoot = await realpath(
