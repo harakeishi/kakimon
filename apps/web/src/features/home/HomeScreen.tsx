@@ -7,6 +7,8 @@ import type { Monster } from "../../domain/monster";
 import { isEgg, needsNaming } from "../../domain/monster";
 import { EmojiIcon } from "../../components/EmojiIcon";
 import { MonsterSprite } from "../../components/MonsterSprite";
+import { PetReactionFx } from "../../components/PetReactionFx";
+import { pickPetReaction, type PetReaction } from "../../domain/petReactions";
 import { NameMonsterModal } from "./NameMonsterModal";
 
 const LIFE_STATE_LABELS: Record<Monster["lifeState"], string> = {
@@ -32,6 +34,21 @@ export function HomeScreen() {
   const [feeding, setFeeding] = useState<{ icon: string; key: number } | null>(
     null
   );
+  // 「なでた」ときの演出（吹き出し＋舞い上がる絵文字）。
+  // なでるたびに key を更新し、ランダムなリアクションを選んで再生する。
+  const [petFx, setPetFx] = useState<{
+    reaction: PetReaction;
+    key: number;
+  } | null>(null);
+
+  // なでる: 機嫌アップ（store）に加えて、ランダムなリアクション演出を出す。
+  function handlePet() {
+    setPetFx((prev) => ({
+      reaction: pickPetReaction(prev?.reaction.id),
+      key: Date.now(),
+    }));
+    void petMonster();
+  }
 
   // ごはんをあげる: 在庫消費＆効果適用に加えて、たべる演出を出す。
   async function handleFeed(foodId: string, icon: string) {
@@ -48,6 +65,13 @@ export function HomeScreen() {
     const t = window.setTimeout(() => setFeeding(null), 1300);
     return () => window.clearTimeout(t);
   }, [feeding]);
+
+  // なで演出も同様にタイマーで必ず解除する（吹き出しの表示時間に合わせる）。
+  useEffect(() => {
+    if (!petFx) return;
+    const t = window.setTimeout(() => setPetFx(null), 1600);
+    return () => window.clearTimeout(t);
+  }, [petFx]);
 
   // 死亡を検知したら「お別れ」モーダルを 1 度だけ出す。
   useEffect(() => {
@@ -133,8 +157,10 @@ export function HomeScreen() {
           {egg ? "タマゴ" : LIFE_STATE_LABELS[monster.lifeState]}
         </div>
         <div
-          className={`monster-art${feeding ? " monster-art--eating" : ""}`}
-          onClick={egg || isDeceased ? undefined : () => void petMonster()}
+          className={`monster-art${feeding ? " monster-art--eating" : ""}${
+            petFx ? " monster-art--petting" : ""
+          }`}
+          onClick={egg || isDeceased ? undefined : handlePet}
           role={egg || isDeceased ? undefined : "button"}
           aria-label={
             egg
@@ -156,6 +182,13 @@ export function HomeScreen() {
           >
             <EmojiIcon emoji={feeding.icon} size={64} alt="" />
           </div>
+        )}
+        {petFx && (
+          <PetReactionFx
+            key={petFx.key}
+            reaction={petFx.reaction}
+            fxKey={petFx.key}
+          />
         )}
       </section>
 
@@ -204,7 +237,7 @@ export function HomeScreen() {
               <>
                 <button
                   className="btn btn--big btn--secondary action-btn"
-                  onClick={() => void petMonster()}
+                  onClick={handlePet}
                 >
                   <EmojiIcon emoji="🤗" size={28} alt="" />
                   <span>なでる</span>
@@ -234,7 +267,7 @@ export function HomeScreen() {
                 </Link>
                 <button
                   className="btn btn--big btn--ghost action-btn"
-                  onClick={() => void petMonster()}
+                  onClick={handlePet}
                 >
                   <EmojiIcon emoji="🤗" size={28} alt="" />
                   <span>なでる</span>
