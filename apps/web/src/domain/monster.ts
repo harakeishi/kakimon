@@ -283,6 +283,26 @@ export function pet(m: Monster): Monster {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// きせかえ（装備の付け外し）
+// ─────────────────────────────────────────────────────────────────
+
+export type EquipSlot = keyof MonsterEquipped;
+
+/** 指定スロットに装備をつける。同じスロットの既存装備は置き換わる。 */
+export function equip(m: Monster, slot: EquipSlot, itemId: string): Monster {
+  if (m.equipped[slot] === itemId) return m;
+  return { ...m, equipped: { ...m.equipped, [slot]: itemId } };
+}
+
+/** 指定スロットの装備をはずす。 */
+export function unequip(m: Monster, slot: EquipSlot): Monster {
+  if (m.equipped[slot] === undefined) return m;
+  const next = { ...m.equipped };
+  delete next[slot];
+  return { ...m, equipped: next };
+}
+
+// ─────────────────────────────────────────────────────────────────
 // 学習による経験値とレベル
 // ─────────────────────────────────────────────────────────────────
 

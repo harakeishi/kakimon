@@ -180,6 +180,10 @@ h3 {
   grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
 }
+/* きせかえ追加で 4 つになる通常時は 2x2 で並べる */
+.actions-grid--4 {
+  grid-template-columns: 1fr 1fr;
+}
 /* アクションボタン: アイコンとラベルを縦並びに */
 .action-btn {
   display: flex;
@@ -247,6 +251,83 @@ h3 {
 .plugin-card .desc {
   font-size: 0.9rem;
   color: var(--text-muted);
+}
+
+/* ショップのタブ（ごはん / きせかえ）────────────────────── */
+.shop-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.shop-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #fff;
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  padding: 12px 10px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-muted);
+  min-height: 52px;
+}
+.shop-tab.is-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 3px 0 var(--primary-strong);
+}
+.shop-tab:active {
+  transform: translateY(1px);
+}
+
+/* きせかえ画面のアイテムグリッド ───────────────────────── */
+.closet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+.closet-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: #fffbe6;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 6px 8px;
+  font-family: inherit;
+  color: var(--text);
+  min-height: 84px;
+}
+.closet-item.is-on {
+  background: #ecfdf5;
+  border-color: var(--good);
+}
+.closet-item:active {
+  transform: translateY(1px);
+}
+.closet-item__name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.2;
+}
+.closet-item__badge {
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  background: var(--good);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
 }
 
 .list {

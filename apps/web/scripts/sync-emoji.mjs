@@ -36,9 +36,25 @@ const EMOJI_CODEPOINTS = [
   "1F31F", // 🌟 glowing star
   "1F4B0", // 💰 money bag (coin)
 
-  // 装備 (Phase 2 で使う仮置きアセット)
+  // きせかえ（装備）
+  // あたま
+  "1F9E2", // 🧢 billed cap
+  "1F452", // 👒 woman's hat (麦わら帽子)
+  "1F3A9", // 🎩 top hat
+  "1F393", // 🎓 graduation cap
   "1F451", // 👑 crown
+  // アクセサリ
+  "1F453", // 👓 glasses
+  "1F576", // 🕶 sunglasses
+  "1F380", // 🎀 ribbon
+  "1F48D", // 💍 ring
   "1F484", // 💄 lipstick
+  // ふく
+  "1F455", // 👕 t-shirt
+  "1F454", // 👔 necktie
+  "1F9E3", // 🧣 scarf
+  "1F457", // 👗 dress
+  "1F97C", // 🥼 lab coat
   "1F9F8", // 🧸 teddy bear
 ];
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGameStore } from "../../state/gameStore";
 import { FOODS } from "../../domain/catalog/foods";
+import { COSMETICS } from "../../domain/catalog/cosmetics";
 import { countOf } from "../../domain/inventory";
 import type { LifeState, MonsterStage } from "../../domain/monster";
 import { EmojiIcon } from "../../components/EmojiIcon";
@@ -53,6 +54,14 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
       FOODS.map((f) => [f.id, String(countOf(inventory, f.id, "food"))])
     )
   );
+  const [cosmetics, setCosmetics] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      COSMETICS.map((c) => [
+        c.id,
+        String(countOf(inventory, c.id, "equipment")),
+      ])
+    )
+  );
   const [saved, setSaved] = useState(false);
 
   async function handleSave() {
@@ -80,6 +89,13 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
       const next = toNum(items[food.id] ?? "", current);
       if (next !== current) {
         await adminSetItemCount(food.id, "food", next);
+      }
+    }
+    for (const item of COSMETICS) {
+      const current = countOf(inventory, item.id, "equipment");
+      const next = toNum(cosmetics[item.id] ?? "", current);
+      if (next !== current) {
+        await adminSetItemCount(item.id, "equipment", next);
       }
     }
     setSaved(true);
@@ -209,6 +225,22 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                 value={items[food.id] ?? "0"}
                 onChange={(v) =>
                   setItems((prev) => ({ ...prev, [food.id]: v }))
+                }
+              />
+            ))}
+          </div>
+        </section>
+
+        <section className="admin-section">
+          <h3>きせかえ（もちもの）</h3>
+          <div className="admin-grid">
+            {COSMETICS.map((item) => (
+              <AdminField
+                key={item.id}
+                label={`${item.icon} ${item.name}`}
+                value={cosmetics[item.id] ?? "0"}
+                onChange={(v) =>
+                  setCosmetics((prev) => ({ ...prev, [item.id]: v }))
                 }
               />
             ))}

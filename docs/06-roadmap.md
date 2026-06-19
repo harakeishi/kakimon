@@ -58,7 +58,7 @@
 
 - [ ] `@kakimon/plugin-writing-numbers`
 - [ ] `@kakimon/plugin-writing-kanji`（小1配当）
-- [ ] 装備 5 種類とショップでの購入・装備管理画面
+- [x] 装備（きせかえ）14 種類とショップでの購入・きせかえ管理画面（見た目のみ・ステータス効果は未実装）
 - [ ] モンスターのステージ進化（egg → baby → child）
 - [ ] レベル別ステータス成長
 - [ ] **時間経過の tick 処理（hunger / cleanliness / mood / hp の減衰）**
