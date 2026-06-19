@@ -248,6 +248,24 @@ function startSession(
         outlineColor: "#cbd5e1",
         highlightColor: "#fbbf24",
         ...(lenient ? LENIENT_MOUNT_OPTS : {}),
+        // 1 画ごとの判定が NG だった瞬間に、モンスターへ「はげまし」を依頼する。
+        // onComplete は（無制限リトライのため）基本 matched:true で終わるので、
+        // 失敗時の応援はこの per-stroke コールバックで出す。
+        onMistake: (data) => {
+          if (disposed || settled) return;
+          if (myIndex !== currentIndex) return;
+          try {
+            ctx.reportReaction?.({
+              correct: false,
+              meta: { character: ch, strokeNum: data.strokeNum },
+            });
+          } catch (e) {
+            console.error(
+              "[plugin-writing-number] reportReaction threw:",
+              e
+            );
+          }
+        },
         onComplete: (data) => {
           if (disposed || settled) return;
           if (myIndex !== currentIndex) return;

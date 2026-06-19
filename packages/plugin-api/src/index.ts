@@ -50,6 +50,13 @@ export interface SessionResult {
   durationMs: number;
 }
 
+export interface StudyReaction {
+  /** 直近の操作が成功だったか（true=ほめる, false=はげます） */
+  correct: boolean;
+  /** 演出の出し分けやデバッグ用の任意メタ（例: 何画目か） */
+  meta?: Record<string, unknown>;
+}
+
 export interface Progress {
   /** 0..1 */
   ratio: number;
@@ -68,6 +75,14 @@ export interface SessionContext {
    * UI 演出専用であり、報酬計算には使われない。
    */
   reportOutcome?(outcome: QuestionOutcome): void;
+  /**
+   * 問題が確定する前の、書き取り途中の細かい反応を通知する（任意）。
+   * reportOutcome が「1 問の確定」なのに対し、こちらは確定前の中間イベント
+   * （例: 1 画書いて判定が NG だった瞬間）に対して、モンスターのはげまし／
+   * ほめ演出をリアルタイムに出すために使う。
+   * 1 問の中で何度でも呼ばれうる。UI 演出専用であり、報酬計算には使われない。
+   */
+  reportReaction?(reaction: StudyReaction): void;
   locale: "ja";
 }
 
