@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { LifeState, Monster, MonsterStage } from "../domain/monster";
 import {
+  equip as equipMonster,
   feed as feedMonster,
   gainExp,
   hatch,
@@ -9,6 +10,8 @@ import {
   pet as petMonster,
   rename,
   tickMonster,
+  unequip as unequipMonster,
+  type EquipSlot,
 } from "../domain/monster";
 import type { Wallet } from "../domain/wallet";
 import { earn, spend } from "../domain/wallet";
@@ -27,6 +30,7 @@ import {
 } from "../infra/db/repositories";
 import { db } from "../infra/db/dexie";
 import { FOODS, findFood } from "../domain/catalog/foods";
+import { COSMETICS, findCosmetic } from "../domain/catalog/cosmetics";
 
 /**
  * 管理者（保護者）モードでモンスターのステータスを直接書き換えるためのパッチ。
@@ -62,6 +66,12 @@ interface GameState {
   petMonster: () => Promise<void>;
   feedWith: (foodId: string) => Promise<boolean>;
   buyFood: (foodId: string) => Promise<boolean>;
+  /** きせかえアイテムを買う。すでに持っていれば false（同じ物は 1 つで十分）。 */
+  buyCosmetic: (itemId: string) => Promise<boolean>;
+  /** きせかえアイテムを装備する。所有していなければ false。 */
+  equipCosmetic: (itemId: string) => Promise<boolean>;
+  /** 指定スロットの装備をはずす。 */
+  unequipSlot: (slot: EquipSlot) => Promise<void>;
   applyReward: (
     session: StudySession
   ) => Promise<{
@@ -204,6 +214,50 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     set({ wallet: spent, inventory: added });
     return true;
+  },
+
+  async buyCosmetic(itemId) {
+    const item = findCosmetic(itemId);
+    if (!item) return false;
+    const { wallet, inventory } = get();
+    // きせかえは消費しない。同じ物を 2 個持っても意味がないので所有済みなら買わない。
+    if (countOf(inventory, itemId, "equipment") > 0) return false;
+    const spent = spend(wallet, item.price);
+    if (!spent) return false;
+    const added = addItem(inventory, itemId, "equipment", 1);
+    try {
+      await db.transaction("rw", db.wallet, db.inventory, async () => {
+        await walletRepo.save(spent);
+        await inventoryRepo.save(added);
+      });
+    } catch (e) {
+      console.error("[gameStore.buyCosmetic] transaction failed:", e);
+      return false;
+    }
+    set({ wallet: spent, inventory: added });
+    return true;
+  },
+
+  async equipCosmetic(itemId) {
+    const { monster, inventory } = get();
+    if (!monster) return false;
+    if (countOf(inventory, itemId, "equipment") <= 0) return false;
+    const item = findCosmetic(itemId);
+    if (!item) return false;
+    const next = equipMonster(monster, item.slot, itemId);
+    if (next === monster) return true;
+    await monsterRepo.save(next);
+    set({ monster: next });
+    return true;
+  },
+
+  async unequipSlot(slot) {
+    const { monster } = get();
+    if (!monster) return;
+    const next = unequipMonster(monster, slot);
+    if (next === monster) return;
+    await monsterRepo.save(next);
+    set({ monster: next });
   },
 
   async applyReward(session) {
@@ -395,4 +449,4 @@ async function commitDeathIfNeeded(m: Monster): Promise<Monster> {
   return m;
 }
 
-export { FOODS };
+export { FOODS, COSMETICS };

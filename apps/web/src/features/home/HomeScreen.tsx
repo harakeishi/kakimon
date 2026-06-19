@@ -199,7 +199,7 @@ export function HomeScreen() {
           </section>
 
           {/* dying のときは「べんきょう」より「おせわ」優先 */}
-          <section className="actions-grid">
+          <section className={`actions-grid${dying ? "" : " actions-grid--4"}`}>
             {dying ? (
               <>
                 <button
@@ -227,6 +227,10 @@ export function HomeScreen() {
                 <Link to="/shop" className="btn btn--big action-btn">
                   <EmojiIcon emoji="🛍" size={28} alt="" />
                   <span>ショップ</span>
+                </Link>
+                <Link to="/closet" className="btn btn--big btn--ghost action-btn">
+                  <EmojiIcon emoji="🎀" size={28} alt="" />
+                  <span>きせかえ</span>
                 </Link>
                 <button
                   className="btn btn--big btn--ghost action-btn"

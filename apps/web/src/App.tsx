@@ -6,6 +6,7 @@ import { StudySelectScreen } from "./features/study/StudySelectScreen";
 import { StudyPlayScreen } from "./features/study/StudyPlayScreen";
 import { StudyResultScreen } from "./features/study/StudyResultScreen";
 import { ShopScreen } from "./features/shop/ShopScreen";
+import { ClosetScreen } from "./features/closet/ClosetScreen";
 import { AdminMode } from "./features/admin/AdminMode";
 import { EmojiIcon } from "./components/EmojiIcon";
 
@@ -57,6 +58,7 @@ export function App() {
         <Route path="/study/:pluginId" element={<StudyPlayScreen />} />
         <Route path="/study/result" element={<StudyResultScreen />} />
         <Route path="/shop" element={<ShopScreen />} />
+        <Route path="/closet" element={<ClosetScreen />} />
         <Route path="*" element={<HomeScreen />} />
       </Routes>
       <AdminMode />
