@@ -64,6 +64,13 @@ export interface SessionContext {
    * のような応援リアクションを出す。報酬計算には使わない。
    */
   reportOutcome?(outcome: QuestionOutcome): void;
+  /**
+   * 問題が確定する前の、書き取り途中の反応を通知する（任意・UI演出専用）。
+   * 例: 1 画書いて判定が NG だった瞬間。Host はこれを使って、確定を待たずに
+   * モンスターの「はげまし」演出をその場で出す。1 問の中で何度でも呼ばれうる。
+   * 報酬計算には使わない。
+   */
+  reportReaction?(reaction: StudyReaction): void;
   /** ロケール */
   locale: "ja";
 }

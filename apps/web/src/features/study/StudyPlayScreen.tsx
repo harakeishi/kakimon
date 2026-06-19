@@ -106,6 +106,12 @@ export function StudyPlayScreen() {
         reactionNonce.current += 1;
         setReaction({ correct: o.correct, nonce: reactionNonce.current });
       },
+      // 1 画ごとの判定など、問題が確定する前の中間反応。
+      // 「1 画書いて NG」のような失敗時に、その場で はげまし演出を出す。
+      reportReaction: (r) => {
+        reactionNonce.current += 1;
+        setReaction({ correct: r.correct, nonce: reactionNonce.current });
+      },
       locale: "ja",
     };
 
