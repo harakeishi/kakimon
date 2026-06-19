@@ -153,6 +153,17 @@ function pickQuestions(difficulty: string, count: number): string[] {
   return arr.slice(0, Math.min(count, arr.length));
 }
 
+// 「やさしいはんてい」モード。小さい子（3 歳前後）が、なぞりの判定が厳しくて
+// ストロークが通らず飽きてしまう問題への対策。host が config.options.lenient を
+// true で渡すと有効になる。kakitori (hanzi-writer) の判定許容度を上げ、ハネ・トメ・
+// ハライの厳しさを実質無効化し、ミスしてもすぐにお手本ヒントを出す。
+//
+// - leniency: なぞり一致のしきい値。既定 1.0 に対し大きいほど緩い。
+// - strokeEndingStrictness: ストローク終端(トメ/ハネ/ハライ)の厳しさ [0,1]。0 で最緩。
+// - showHintAfterMisses: 何回ミスしたらお手本(ハイライト)を出すか。すぐ出して導く。
+const LENIENT_CHAR_OPTS = { leniency: 3, strokeEndingStrictness: 0 } as const;
+const LENIENT_MOUNT_OPTS = { showHintAfterMisses: 1 } as const;
+
 function startSession(
   target: HTMLElement,
   config: SessionConfig,
@@ -160,6 +171,7 @@ function startSession(
 ): SessionHandle {
   const startedAt = Date.now();
   const total = config.questionCount ?? 5;
+  const lenient = config.options?.lenient === true;
   const questions = pickQuestions(config.difficulty, total);
   const outcomes: QuestionOutcome[] = [];
 
@@ -258,6 +270,7 @@ function startSession(
       const instance = char.create(ch, {
         charDataLoader,
         configLoader,
+        ...(lenient ? LENIENT_CHAR_OPTS : {}),
       });
       currentChar = instance;
       instance.mount(charHost, {
@@ -268,6 +281,7 @@ function startSession(
         drawingColor: "#2563eb",
         outlineColor: "#cbd5e1",
         highlightColor: "#fbbf24",
+        ...(lenient ? LENIENT_MOUNT_OPTS : {}),
         onComplete: (data) => {
           // dispose 後に kakitori の内部キューが onComplete を発火することがある。
           // settled なら無視。インデックスがズレている場合 (例: skip で進められた後)
@@ -278,8 +292,11 @@ function startSession(
           // 連続失敗カウンタをリセット。char.create / mount 直後ではなく
           // 実際に書き終えた時点でリセットすることで、mount で持続失敗するケースを拾える。
           consecutiveLoadFailures = 0;
+          // やさしいモードではミス 1 回あたりの減点を緩める（0.1 → 0.04）。
+          // 小さい子が何度もなぞり直しても、ごほうびがしっかりもらえるように。
+          const mistakePenalty = lenient ? 0.04 : 0.1;
           const score = data.matched
-            ? Math.max(0, 1 - data.totalMistakes * 0.1)
+            ? Math.max(0, 1 - data.totalMistakes * mistakePenalty)
             : 0.3;
           outcomes.push({
             questionId: `${ch}@${myIndex}`,

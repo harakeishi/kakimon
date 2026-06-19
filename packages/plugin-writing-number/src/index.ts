@@ -123,6 +123,13 @@ function pickQuestions(difficulty: string, count: number): string[] {
   return arr.slice(0, Math.min(count, arr.length));
 }
 
+// 「やさしいはんてい」モード。小さい子（3 歳前後）が、なぞりの判定が厳しくて
+// ストロークが通らず飽きてしまう問題への対策。host が config.options.lenient を
+// true で渡すと有効になる。kakitori (hanzi-writer) の判定許容度を上げ、ストローク
+// 終端の厳しさを実質無効化し、ミスしてもすぐにお手本ヒントを出す。
+const LENIENT_CHAR_OPTS = { leniency: 3, strokeEndingStrictness: 0 } as const;
+const LENIENT_MOUNT_OPTS = { showHintAfterMisses: 1 } as const;
+
 function startSession(
   target: HTMLElement,
   config: SessionConfig,
@@ -130,6 +137,7 @@ function startSession(
 ): SessionHandle {
   const startedAt = Date.now();
   const total = config.questionCount ?? 5;
+  const lenient = config.options?.lenient === true;
   const questions = pickQuestions(config.difficulty, total);
   const outcomes: QuestionOutcome[] = [];
 
@@ -228,6 +236,7 @@ function startSession(
       const instance = char.create(ch, {
         charDataLoader,
         configLoader,
+        ...(lenient ? LENIENT_CHAR_OPTS : {}),
       });
       currentChar = instance;
       instance.mount(charHost, {
@@ -238,12 +247,15 @@ function startSession(
         drawingColor: "#2563eb",
         outlineColor: "#cbd5e1",
         highlightColor: "#fbbf24",
+        ...(lenient ? LENIENT_MOUNT_OPTS : {}),
         onComplete: (data) => {
           if (disposed || settled) return;
           if (myIndex !== currentIndex) return;
           consecutiveLoadFailures = 0;
+          // やさしいモードではミス 1 回あたりの減点を緩める（0.1 → 0.04）。
+          const mistakePenalty = lenient ? 0.04 : 0.1;
           const score = data.matched
-            ? Math.max(0, 1 - data.totalMistakes * 0.1)
+            ? Math.max(0, 1 - data.totalMistakes * mistakePenalty)
             : 0.3;
           outcomes.push({
             questionId: `${ch}@${myIndex}`,
