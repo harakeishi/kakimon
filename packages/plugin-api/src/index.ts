@@ -60,6 +60,14 @@ export interface SessionContext {
   complete(result: SessionResult): void;
   abort(reason: "user" | "error", detail?: string): void;
   reportProgress(progress: Progress): void;
+  /**
+   * 1 問ごとの結果を確定した瞬間に通知する（任意）。
+   * Host はこれを受けて、育てているモンスターに「すごい！」「もういちど！」
+   * といったリアルタイムな応援リアクションを出す。
+   * 呼ばなくてもセッションは成立する（complete の outcomes が正）。
+   * UI 演出専用であり、報酬計算には使われない。
+   */
+  reportOutcome?(outcome: QuestionOutcome): void;
   locale: "ja";
 }
 

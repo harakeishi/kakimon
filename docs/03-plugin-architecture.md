@@ -58,6 +58,12 @@ export interface SessionContext {
   abort(reason: "user" | "error", detail?: string): void;
   /** 進捗を報告する（UIのプログレス用、任意） */
   reportProgress(progress: Progress): void;
+  /**
+   * 1 問ごとの結果が確定した瞬間に通知する（任意・UI演出専用）。
+   * Host はこれを使って、育てているモンスターに「すごい！」「もういちど！」
+   * のような応援リアクションを出す。報酬計算には使わない。
+   */
+  reportOutcome?(outcome: QuestionOutcome): void;
   /** ロケール */
   locale: "ja";
 }

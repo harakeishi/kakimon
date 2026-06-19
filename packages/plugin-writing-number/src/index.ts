@@ -245,7 +245,7 @@ function startSession(
           const score = data.matched
             ? Math.max(0, 1 - data.totalMistakes * 0.1)
             : 0.3;
-          outcomes.push({
+          const outcome: QuestionOutcome = {
             questionId: `${ch}@${myIndex}`,
             correct: data.matched,
             score,
@@ -255,7 +255,14 @@ function startSession(
               totalMistakes: data.totalMistakes,
               attempts: data.attempts,
             },
-          });
+          };
+          outcomes.push(outcome);
+          // Host にリアルタイム通知（モンスターの応援演出用）。
+          try {
+            ctx.reportOutcome?.(outcome);
+          } catch (e) {
+            console.error("[plugin-writing-number] reportOutcome threw:", e);
+          }
           clearPendingTimer();
           pendingTimer = window.setTimeout(() => {
             pendingTimer = null;
