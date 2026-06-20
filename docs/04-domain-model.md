@@ -9,6 +9,7 @@ Player ─── owns ───▶ Monster ─── equips ───▶ Equipme
    │
    ├── has ──▶ Wallet (coins)
    ├── has ──▶ Inventory (food / equipment)
+   ├── has ──▶ LoginBonus (毎日のコイン)
    └── logs ─▶ StudySession (履歴)
 ```
 
@@ -162,6 +163,27 @@ interface Room {
   furnitureIds: InteriorId[];  // 最大 4 個、並び順 = 表示順
 }
 ```
+
+### LoginBonus（ログインボーナス状態）
+
+1 日 1 回コインを受け取れるログインボーナスの状態。Monster とは独立した端末単位の
+状態で、`settings` テーブルに singleton（id: `"loginBonus"`）で保存する。死亡からの
+再スタートでも Wallet / Inventory と同様に連続日数ごと持ち越す。
+
+```ts
+interface LoginBonus {
+  lastClaimedDate: string | null;  // 最後に受け取った日 (ローカル YYYY-MM-DD)
+  streak: number;                  // 連続ログイン日数
+}
+```
+
+- ねらい：「べんきょう」報酬だけだと餌代でコインが消えてアイテム購入まで届きにくい
+  ため、毎日もらえる固定収入で難易度を下げる。
+- 受け取り額：基本 `10` コイン。連続ログイン 1 日ごとに `+2`、上限 `+20`
+  （= 連続 11 日以降は 1 日 30 コイン）。毎日あそぶほどたまりやすくなる。
+- 前日に受け取っていれば streak を継続、空いていれば 1 にリセット。
+- 日付はローカルタイムの年月日で判定する（UTC 変換で日本時間の深夜に 1 日
+  ずれるのを避ける）。
 
 ### StudySession（履歴）
 
