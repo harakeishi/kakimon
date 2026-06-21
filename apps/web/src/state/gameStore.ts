@@ -24,6 +24,12 @@ import {
   setWallpaper,
   toggleFurniture,
 } from "../domain/room";
+import type { LoginBonus } from "../domain/loginBonus";
+import {
+  canClaim as canClaimBonus,
+  claim as claimBonus,
+  createInitialLoginBonus,
+} from "../domain/loginBonus";
 import type { StudySession } from "../domain/studySession";
 import type { GraveRecord } from "../domain/graveyard";
 import { buildGraveRecord } from "../domain/graveyard";
@@ -31,6 +37,7 @@ import {
   bootstrapIfEmpty,
   graveyardRepo,
   inventoryRepo,
+  loginBonusRepo,
   monsterRepo,
   roomRepo,
   studySessionRepo,
@@ -70,6 +77,8 @@ interface GameState {
   inventory: Inventory;
   /** へやのもようがえ状態（壁紙・床・家具） */
   room: Room;
+  /** ログインボーナス状態（最終受け取り日・連続日数） */
+  loginBonus: LoginBonus;
   recentSessions: StudySession[];
   graves: GraveRecord[];
   init: () => Promise<void>;
@@ -100,6 +109,17 @@ interface GameState {
     wasDeceased: boolean;
     /** この学習で卵が孵化したか（命名フローへ誘導するため） */
     didHatch: boolean;
+  }>;
+  /** きょうのログインボーナスが受け取れるか */
+  canClaimLoginBonus: () => boolean;
+  /**
+   * きょうのログインボーナスを受け取る。受け取れた場合は獲得コインと連続日数を返す。
+   * すでに今日受け取り済みなら claimed:false。
+   */
+  claimLoginBonus: () => Promise<{
+    claimed: boolean;
+    coins: number;
+    streak: number;
   }>;
   /** 孵化後の命名 */
   nameMonster: (name: string) => Promise<void>;
@@ -134,6 +154,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   wallet: { coins: 0, lifetimeEarned: 0, lifetimeSpent: 0 },
   inventory: { entries: [] },
   room: createInitialRoom(),
+  loginBonus: createInitialLoginBonus(),
   recentSessions: [],
   graves: [],
 
@@ -141,7 +162,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (get().ready) return;
     if (initInflight) return initInflight;
     initInflight = (async () => {
-      const { monster, wallet, inventory, room } = await bootstrapIfEmpty();
+      const { monster, wallet, inventory, room, loginBonus } =
+        await bootstrapIfEmpty();
       const ticked = tickMonster(monster, Date.now());
       // 起動時に deceased を検知したら、お墓に転記する（未記録なら）。
       const finalMonster = await commitDeathIfNeeded(ticked);
@@ -154,6 +176,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         wallet,
         inventory,
         room,
+        loginBonus,
         recentSessions: recent,
         graves,
       });
@@ -393,6 +416,33 @@ export const useGameStore = create<GameState>((set, get) => ({
     };
   },
 
+  canClaimLoginBonus() {
+    return canClaimBonus(get().loginBonus, new Date());
+  },
+
+  async claimLoginBonus() {
+    const { loginBonus, wallet } = get();
+    const result = claimBonus(loginBonus, new Date());
+    if (!result.claimed) {
+      return { claimed: false, coins: 0, streak: result.streak };
+    }
+    const nextWallet = earn(wallet, result.coins);
+    // wallet（コイン加算）と settings（受け取り日・連続日数）を atomic に書く。
+    // 途中で失敗したら「コインだけ増えて受け取り日が記録されない（=二重取得）」や
+    // その逆を避けるため、単一トランザクションでまとめる。
+    try {
+      await db.transaction("rw", db.wallet, db.settings, async () => {
+        await walletRepo.save(nextWallet);
+        await loginBonusRepo.save(result.bonus);
+      });
+    } catch (e) {
+      console.error("[gameStore.claimLoginBonus] transaction failed:", e);
+      return { claimed: false, coins: 0, streak: loginBonus.streak };
+    }
+    set({ wallet: nextWallet, loginBonus: result.bonus });
+    return { claimed: true, coins: result.coins, streak: result.streak };
+  },
+
   async nameMonster(name) {
     const m = get().monster;
     if (!m) return;
@@ -410,12 +460,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     await studySessionRepo.clear();
     await graveyardRepo.clear();
     await roomRepo.clear();
+    await loginBonusRepo.clear();
     const fresh = await bootstrapIfEmpty();
     set({
       monster: fresh.monster,
       wallet: fresh.wallet,
       inventory: fresh.inventory,
       room: fresh.room,
+      loginBonus: fresh.loginBonus,
       recentSessions: [],
       graves: [],
     });
@@ -442,6 +494,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         inventory: fresh.inventory,
         // へやのもよう は再スタートでも持ち越す（Wallet / Inventory と同じ扱い）。
         room: fresh.room,
+        // ログインボーナスの連続日数も再スタートで持ち越す。
+        loginBonus: fresh.loginBonus,
         recentSessions: recent,
         graves,
       });

@@ -29,8 +29,18 @@ export function HomeScreen() {
   const feedWith = useGameStore((s) => s.feedWith);
   const rebirth = useGameStore((s) => s.rebirth);
   const nameMonster = useGameStore((s) => s.nameMonster);
+  const loginBonus = useGameStore((s) => s.loginBonus);
+  const canClaimLoginBonus = useGameStore((s) => s.canClaimLoginBonus);
+  const claimLoginBonus = useGameStore((s) => s.claimLoginBonus);
   const [confirmRebirth, setConfirmRebirth] = useState(false);
   const [showFarewell, setShowFarewell] = useState(false);
+  // ログインボーナス: 受け取れる日は起動時にモーダルを出す。
+  // 受け取り後は獲得結果（コイン・連続日数）を表示してから閉じる。
+  const [bonusOpen, setBonusOpen] = useState(false);
+  const [bonusResult, setBonusResult] = useState<{
+    coins: number;
+    streak: number;
+  } | null>(null);
   // 「ごはんを たべている」演出用。クリックのたびに key を更新して
   // CSS アニメーションを最初から再生させる。
   const [feeding, setFeeding] = useState<{ icon: string; key: number } | null>(
@@ -74,6 +84,24 @@ export function HomeScreen() {
     const t = window.setTimeout(() => setPetFx(null), 1600);
     return () => window.clearTimeout(t);
   }, [petFx]);
+
+  // きょうまだ受け取っていなければログインボーナスのモーダルを開く。
+  // lastClaimedDate が変わる（受け取り完了）と再評価され、二重には開かない。
+  useEffect(() => {
+    if (canClaimLoginBonus()) {
+      setBonusResult(null);
+      setBonusOpen(true);
+    }
+  }, [canClaimLoginBonus, loginBonus.lastClaimedDate]);
+
+  async function handleClaimBonus() {
+    const r = await claimLoginBonus();
+    if (r.claimed) {
+      setBonusResult({ coins: r.coins, streak: r.streak });
+    } else {
+      setBonusOpen(false);
+    }
+  }
 
   // 死亡を検知したら「お別れ」モーダルを 1 度だけ出す。
   useEffect(() => {
@@ -346,6 +374,59 @@ export function HomeScreen() {
             await nameMonster(name);
           }}
         />
+      )}
+
+      {/* ログインボーナス モーダル（その日まだ受け取っていないとき） */}
+      {bonusOpen && (
+        <div
+          className="modal-mask"
+          // 受け取り前は背景タップで閉じない（プレゼントを取り逃がさないように）。
+          // 受け取り後は背景タップで閉じてよい。
+          onClick={() => bonusResult && setBonusOpen(false)}
+        >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            {bonusResult ? (
+              <>
+                <EmojiIcon emoji="🪙" size={72} alt="" />
+                <h2>＋{bonusResult.coins} コイン！</h2>
+                <p className="muted" style={{ marginBottom: 16 }}>
+                  {bonusResult.streak >= 2
+                    ? `${bonusResult.streak}にち れんぞく ログイン中！`
+                    : "きょうも あそびに きてくれて ありがとう！"}
+                  <br />
+                  まいにち ログインすると もっと もらえるよ。
+                </p>
+                <button
+                  className="btn btn--block btn--success"
+                  onClick={() => setBonusOpen(false)}
+                >
+                  やったー！
+                </button>
+              </>
+            ) : (
+              <>
+                <EmojiIcon emoji="🎁" size={72} alt="" />
+                <h2>ログインボーナス</h2>
+                <p className="muted" style={{ marginBottom: 16 }}>
+                  きょうの コインを うけとろう！
+                  {loginBonus.streak >= 1 && (
+                    <>
+                      <br />
+                      いまの れんぞく ログイン: {loginBonus.streak}にち
+                    </>
+                  )}
+                </p>
+                <button
+                  className="btn btn--block btn--success"
+                  onClick={() => void handleClaimBonus()}
+                >
+                  <EmojiIcon emoji="🪙" size={24} alt="" />
+                  <span style={{ marginLeft: 8 }}>うけとる</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {/* お別れモーダル（deceased 初回検知時に 1 度だけ） */}

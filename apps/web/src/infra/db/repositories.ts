@@ -13,6 +13,8 @@ import type { StudySession } from "../../domain/studySession";
 import type { GraveRecord } from "../../domain/graveyard";
 import type { Room } from "../../domain/room";
 import { createInitialRoom, normalizeRoom } from "../../domain/room";
+import type { LoginBonus } from "../../domain/loginBonus";
+import { createInitialLoginBonus } from "../../domain/loginBonus";
 
 const MAX_SESSIONS = 1000;
 
@@ -122,6 +124,35 @@ export const roomRepo = {
   },
 };
 
+// ログインボーナス状態も settings テーブルに singleton で持つ（room と同じ方式）。
+// 専用テーブルを足すと schema migration が必要になるため settings を再利用する。
+const LOGIN_BONUS_SETTINGS_KEY = "loginBonus";
+
+function normalizeLoginBonus(value: unknown): LoginBonus {
+  const v = (value ?? {}) as Partial<LoginBonus>;
+  const date =
+    typeof v.lastClaimedDate === "string" ? v.lastClaimedDate : null;
+  const streak =
+    typeof v.streak === "number" && Number.isFinite(v.streak) && v.streak > 0
+      ? Math.floor(v.streak)
+      : 0;
+  return { lastClaimedDate: date, streak };
+}
+
+export const loginBonusRepo = {
+  async load(): Promise<LoginBonus> {
+    const row = await db.settings.get(LOGIN_BONUS_SETTINGS_KEY);
+    if (!row) return createInitialLoginBonus();
+    return normalizeLoginBonus(row.value);
+  },
+  async save(lb: LoginBonus): Promise<void> {
+    await db.settings.put({ id: LOGIN_BONUS_SETTINGS_KEY, value: lb });
+  },
+  async clear(): Promise<void> {
+    await db.settings.delete(LOGIN_BONUS_SETTINGS_KEY);
+  },
+};
+
 export const studySessionRepo = {
   /**
    * 挿入とトリミングを 1 transaction でまとめる。並行 append でも
@@ -165,6 +196,7 @@ export async function bootstrapIfEmpty(): Promise<{
   wallet: Wallet;
   inventory: Inventory;
   room: Room;
+  loginBonus: LoginBonus;
 }> {
   const monster = await db.transaction(
     "rw",
@@ -194,5 +226,6 @@ export async function bootstrapIfEmpty(): Promise<{
   );
   const inventory = await inventoryRepo.load();
   const room = await roomRepo.load();
-  return { monster, wallet, inventory, room };
+  const loginBonus = await loginBonusRepo.load();
+  return { monster, wallet, inventory, room, loginBonus };
 }
