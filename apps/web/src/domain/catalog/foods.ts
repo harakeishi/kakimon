@@ -20,7 +20,7 @@ export const FOODS: readonly FoodItem[] = [
     description: "あまずっぱい くだもの",
     icon: "🍎",
     price: 5,
-    effects: { hungerDelta: -15, moodDelta: 5 },
+    effects: { hungerDelta: -20, moodDelta: 5 },
   },
   {
     id: "food-onigiri",
@@ -28,15 +28,15 @@ export const FOODS: readonly FoodItem[] = [
     description: "しっかり おなかいっぱい",
     icon: "🍙",
     price: 10,
-    effects: { hungerDelta: -30, moodDelta: 8 },
+    effects: { hungerDelta: -45, moodDelta: 8 },
   },
   {
     id: "food-cake",
     name: "ショートケーキ",
     description: "とくべつな ごほうび",
     icon: "🍰",
-    price: 30,
-    effects: { hungerDelta: -25, moodDelta: 25, hpDelta: 10 },
+    price: 25,
+    effects: { hungerDelta: -35, moodDelta: 25, hpDelta: 12 },
   },
 ];
 

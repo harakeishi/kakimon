@@ -1,12 +1,14 @@
 import type { SessionResult } from "@kakimon/plugin-api";
 
 // 難易度別ベース値。プラグイン間でバランス調整を一箇所に集約する。
+// コインは「1 日 3 回ほどの学習で、モンスターの満腹を保ちつつアイテム購入の
+// 貯金もできる」ことを目安に調整している（餌代の目安は 1 日あたり 20〜25 コイン）。
 const BASE_COINS_BY_LEVEL: Record<number, number> = {
-  1: 5,
-  2: 8,
-  3: 12,
-  4: 18,
-  5: 25,
+  1: 12,
+  2: 18,
+  3: 25,
+  4: 32,
+  5: 40,
 };
 
 const BASE_EXP_BY_LEVEL: Record<number, number> = {
