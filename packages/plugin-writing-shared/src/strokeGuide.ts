@@ -102,22 +102,31 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
     const medians = charData.medians;
     const logicalCount = strokeGroups?.length ?? medians.length;
     if (strokeIndex < 0 || strokeIndex >= logicalCount) return null;
-    // strokeGroups がある文字 (例: あ の 3 画目 = データ画 [2,3]) は、
-    // グループ内のデータ画の medians を連結して 1 本のガイドにする。
-    const dataIndexes = strokeGroups?.[strokeIndex] ?? [strokeIndex];
+    // strokeGroups がある文字 (例: あ の 3 画目 = データ画 [2,3]) では、
+    // グループ「先頭」のデータ画の median だけを使う。
+    //
+    // hanzi-writer-data-jp のデータ仕様 (ひらがな・数字の複数画グループ
+    // 全 20 件で確認):
+    // - 先頭データ画の median が、論理画 (見た目の 1 画) 全体の中央線を
+    //   単独でカバーする (例: あ medians[2] はループ全体、お medians[1] は
+    //   縦線+ループ全体)。
+    // - 2 番目以降の median は「画の後半だけを書いた場合も受理する」ための
+    //   判定用補助データで、キャンバス外のセンチネル点 (例: あ medians[3]
+    //   の始点 [-170,458]) や別ルートの変種を含む。
+    // そのため連結するとガイド線がキャンバス外へ飛ぶジグザグになる。
+    // ガイドには先頭 median のみが正しい。
+    const dataIndex = strokeGroups?.[strokeIndex]?.[0] ?? strokeIndex;
+    const median = medians[dataIndex];
+    if (!median) return null;
     const pts: Array<[number, number]> = [];
-    for (const di of dataIndexes) {
-      const median = medians[di];
-      if (!median) continue;
-      for (const p of median) {
-        const x = p[0];
-        const y = p[1];
-        if (x === undefined || y === undefined) continue;
-        pts.push([
-          round2(padding + x * scale),
-          round2(originY - y * scale),
-        ]);
-      }
+    for (const p of median) {
+      const x = p[0];
+      const y = p[1];
+      if (x === undefined || y === undefined) continue;
+      pts.push([
+        round2(padding + x * scale),
+        round2(originY - y * scale),
+      ]);
     }
     return pts.length > 0 ? pts : null;
   }
