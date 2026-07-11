@@ -14,6 +14,11 @@ import type {
   SessionContext,
   SessionHandle,
 } from "@kakimon/plugin-api";
+import type { StrokeGuide } from "@kakimon/plugin-writing-shared";
+import {
+  createStrokeGuide,
+  wrapLoadersForGuide,
+} from "@kakimon/plugin-writing-shared";
 
 function baseUrl(): string {
   const base =
@@ -138,6 +143,9 @@ function startSession(
   const startedAt = Date.now();
   const total = config.questionCount ?? 5;
   const lenient = config.options?.lenient === true;
+  // 「かきじゅんガイド」モード。いま書くべき 1 画の始点・終点・方向を
+  // オーバーレイで示す。host が config.options.strokeGuide を true で渡すと有効。
+  const strokeGuide = config.options?.strokeGuide === true;
   const questions = pickQuestions(config.difficulty, total);
   const outcomes: QuestionOutcome[] = [];
 
@@ -170,6 +178,7 @@ function startSession(
 
   let currentIndex = 0;
   let currentChar: ReturnType<typeof char.create> | null = null;
+  let currentGuide: StrokeGuide | null = null;
   let disposed = false;
   let settled = false;
   let questionStartedAt = Date.now();
@@ -232,10 +241,18 @@ function startSession(
 
     const ch = questions[currentIndex]!;
     const myIndex = currentIndex;
+    // かきじゅんガイド。ローダをラップして文字データ (medians / strokeGroups)
+    // を捕捉し、mount 後にオーバーレイを重ねる。OFF 時は一切何も作らない。
+    const guide = strokeGuide ? createStrokeGuide({ size: 300 }) : null;
+    currentGuide = guide;
+    const loaders = wrapLoadersForGuide(guide, {
+      charDataLoader,
+      configLoader,
+    });
     try {
       const instance = char.create(ch, {
-        charDataLoader,
-        configLoader,
+        charDataLoader: loaders.charDataLoader,
+        configLoader: loaders.configLoader,
         ...(lenient ? LENIENT_CHAR_OPTS : {}),
       });
       currentChar = instance;
@@ -248,6 +265,13 @@ function startSession(
         outlineColor: "#cbd5e1",
         highlightColor: "#fbbf24",
         ...(lenient ? LENIENT_MOUNT_OPTS : {}),
+        // 1 画正解するたびに、ガイドを次の画へ進める。
+        // data.strokeNum は論理画インデックス (0 始まり、strokeGroups 反映済み)。
+        onCorrectStroke: (data) => {
+          if (disposed || settled) return;
+          if (myIndex !== currentIndex) return;
+          guide?.setStroke(data.strokeNum + 1);
+        },
         // 1 画ごとの判定が NG だった瞬間に、モンスターへ「はげまし」を依頼する。
         // onComplete は（無制限リトライのため）基本 matched:true で終わるので、
         // 失敗時の応援はこの per-stroke コールバックで出す。
@@ -269,6 +293,8 @@ function startSession(
         onComplete: (data) => {
           if (disposed || settled) return;
           if (myIndex !== currentIndex) return;
+          // 書き終わったのでガイドは消す。
+          guide?.hide();
           consecutiveLoadFailures = 0;
           // やさしいモードではミス 1 回あたりの減点を緩める（0.1 → 0.04）。
           const mistakePenalty = lenient ? 0.04 : 0.1;
@@ -304,7 +330,11 @@ function startSession(
         },
       });
       instance.start();
+      // mount() が charHost 内に描画レイヤを作った後にオーバーレイを重ねる。
+      guide?.attach(charHost);
     } catch (err) {
+      guide?.destroy();
+      if (currentGuide === guide) currentGuide = null;
       const elapsed = Date.now() - questionStartedAt;
       outcomes.push({
         questionId: `${ch}@${myIndex}`,
@@ -327,6 +357,10 @@ function startSession(
   }
 
   function unmountCurrent() {
+    if (currentGuide) {
+      currentGuide.destroy();
+      currentGuide = null;
+    }
     if (currentChar) {
       try {
         currentChar.destroy();

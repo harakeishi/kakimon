@@ -230,7 +230,14 @@ exp    = floor( baseExp(difficulty)   × overallScore )
 - 出題: 学年 → 単元 → 漢字。読みも一緒に表示する。
 
 3 つのプラグインは共通の「kakitori ラッパー」を共有する形にし、
-`packages/plugin-writing-shared/` に切り出すのが妥当（実装時に判断）。
+`packages/plugin-writing-shared/` に切り出すのが妥当。
+
+`@kakimon/plugin-writing-shared` は source-only パッケージ（plugin-api と
+同方式）として作成済み。現状は「かきじゅんガイド」モードのオーバーレイ描画
+（`createStrokeGuide` / `wrapLoadersForGuide`。host が
+`SessionConfig.options.strokeGuide` を true で渡すと有効）のみを提供する。
+ローダ（charDataLoader / configLoader）やセッション進行など kakitori
+ラッパー本体の共通化は今後の課題。
 
 ## 3.7 プラグインのテスト
 

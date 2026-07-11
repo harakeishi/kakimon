@@ -39,6 +39,27 @@ function saveLenient(value: boolean): void {
   }
 }
 
+// 「かきじゅんガイド」モードの保存キー。書き順がわからない子向けに、いま書く
+// べき 1 画の始点・方向をオーバーレイで示す。プラグインへは
+// SessionConfig.options.strokeGuide として渡る。設定はデバイスに残す（localStorage）。
+const STROKE_GUIDE_STORAGE_KEY = "kakimon.strokeGuide";
+
+function loadStrokeGuide(): boolean {
+  try {
+    return localStorage.getItem(STROKE_GUIDE_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveStrokeGuide(value: boolean): void {
+  try {
+    localStorage.setItem(STROKE_GUIDE_STORAGE_KEY, value ? "1" : "0");
+  } catch {
+    // localStorage が使えない環境(プライベートモード等)でも続行する
+  }
+}
+
 interface FinalizeArgs {
   difficulty: DifficultyOption;
   pluginId: string;
@@ -57,6 +78,7 @@ export function StudyPlayScreen() {
 
   const [difficulty, setDifficulty] = useState<DifficultyOption | null>(null);
   const [lenient, setLenient] = useState<boolean>(loadLenient);
+  const [strokeGuide, setStrokeGuide] = useState<boolean>(loadStrokeGuide);
   const [progressLabel, setProgressLabel] = useState("");
   const targetRef = useRef<HTMLDivElement | null>(null);
   const handleRef = useRef<{ dispose(): void } | null>(null);
@@ -122,8 +144,9 @@ export function StudyPlayScreen() {
         {
           difficulty: difficulty.key,
           questionCount: 5,
-          // やさしいはんていモード。プラグインがなぞり判定の許容度を上げる。
-          options: { lenient },
+          // lenient: やさしいはんてい。プラグインがなぞり判定の許容度を上げる。
+          // strokeGuide: かきじゅんガイド。いま書く 1 画の始点・方向を示す。
+          options: { lenient, strokeGuide },
         },
         ctx
       );
@@ -240,7 +263,7 @@ export function StudyPlayScreen() {
         </p>
         <button
           type="button"
-          className={`lenient-toggle${lenient ? " is-on" : ""}`}
+          className={`mode-toggle${lenient ? " is-on" : ""}`}
           role="switch"
           aria-checked={lenient}
           onClick={() => {
@@ -249,14 +272,35 @@ export function StudyPlayScreen() {
             saveLenient(next);
           }}
         >
-          <span className="lenient-toggle__text">
-            <span className="lenient-toggle__title">やさしい はんてい</span>
-            <span className="lenient-toggle__hint">
+          <span className="mode-toggle__text">
+            <span className="mode-toggle__title">やさしい はんてい</span>
+            <span className="mode-toggle__hint">
               ちいさい こ むけ。はんていを ゆるくするよ
             </span>
           </span>
-          <span className="lenient-toggle__switch" aria-hidden>
-            <span className="lenient-toggle__knob" />
+          <span className="mode-toggle__switch" aria-hidden>
+            <span className="mode-toggle__knob" />
+          </span>
+        </button>
+        <button
+          type="button"
+          className={`mode-toggle${strokeGuide ? " is-on" : ""}`}
+          role="switch"
+          aria-checked={strokeGuide}
+          onClick={() => {
+            const next = !strokeGuide;
+            setStrokeGuide(next);
+            saveStrokeGuide(next);
+          }}
+        >
+          <span className="mode-toggle__text">
+            <span className="mode-toggle__title">かきじゅん ガイド</span>
+            <span className="mode-toggle__hint">
+              かきはじめと むきを ひかりで おしえるよ
+            </span>
+          </span>
+          <span className="mode-toggle__switch" aria-hidden>
+            <span className="mode-toggle__knob" />
           </span>
         </button>
         {levels.map((lv) => (
