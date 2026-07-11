@@ -80,6 +80,9 @@ importers:
       '@kakimon/plugin-api':
         specifier: workspace:*
         version: link:../plugin-api
+      '@kakimon/plugin-writing-shared':
+        specifier: workspace:*
+        version: link:../plugin-writing-shared
       hanzi-writer:
         specifier: 3.7.3
         version: 3.7.3
@@ -96,6 +99,22 @@ importers:
       '@kakimon/plugin-api':
         specifier: workspace:*
         version: link:../plugin-api
+      '@kakimon/plugin-writing-shared':
+        specifier: workspace:*
+        version: link:../plugin-writing-shared
+      hanzi-writer:
+        specifier: 3.7.3
+        version: 3.7.3
+    devDependencies:
+      typescript:
+        specifier: 5.6.3
+        version: 5.6.3
+
+  packages/plugin-writing-shared:
+    dependencies:
+      '@k1low/kakitori':
+        specifier: 0.15.0
+        version: 0.15.0(hanzi-writer@3.7.3)
       hanzi-writer:
         specifier: 3.7.3
         version: 3.7.3

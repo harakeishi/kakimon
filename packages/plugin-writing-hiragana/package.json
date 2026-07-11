@@ -15,6 +15,7 @@
   "dependencies": {
     "@k1low/kakitori": "0.15.0",
     "@kakimon/plugin-api": "workspace:*",
+    "@kakimon/plugin-writing-shared": "workspace:*",
     "hanzi-writer": "3.7.3"
   },
   "devDependencies": {
