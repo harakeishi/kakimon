@@ -139,8 +139,11 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
   }
 
   // 終点の進行方向 (deg)。終点直前のごく短いセグメントはノイズなので、
-  // 終点から 4px 以上離れた点を遡って探す。
-  function endAngleDeg(pts: Array<[number, number]>): number {
+  // 終点から 4px 以上離れた点を遡って探す。全点が 4px 未満に収まる短い画
+  // (漢字の「丶」のような点画) では始点→終点ベクトルの向きにフォールバック
+  // する。始点と終点まで一致して向きが定まらない場合は null を返し、
+  // 呼び出し側は矢印を描かない。
+  function endAngleDeg(pts: Array<[number, number]>): number | null {
     const end = pts[pts.length - 1]!;
     for (let i = pts.length - 2; i >= 0; i--) {
       const p = pts[i]!;
@@ -150,7 +153,11 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
         return (Math.atan2(dy, dx) * 180) / Math.PI;
       }
     }
-    return 0;
+    const start = pts[0]!;
+    const dx = end[0] - start[0];
+    const dy = end[1] - start[1];
+    if (dx === 0 && dy === 0) return null;
+    return (Math.atan2(dy, dx) * 180) / Math.PI;
   }
 
   function render(): void {
@@ -177,17 +184,19 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
           "stroke-linejoin": "round",
         })
       );
-      // 終点側の矢印 (方向を明示)
+      // 終点側の矢印 (方向を明示)。向きが定まらない画では描かない。
       const angle = endAngleDeg(pts);
-      overlay.appendChild(
-        svgEl("path", {
-          class: "ksg-arrow",
-          d: "M11 0 L-5 7.5 L-1.5 0 L-5 -7.5 Z",
-          fill: ARROW_COLOR,
-          "fill-opacity": "0.9",
-          transform: `translate(${end[0]} ${end[1]}) rotate(${round2(angle)})`,
-        })
-      );
+      if (angle !== null) {
+        overlay.appendChild(
+          svgEl("path", {
+            class: "ksg-arrow",
+            d: "M11 0 L-5 7.5 L-1.5 0 L-5 -7.5 Z",
+            fill: ARROW_COLOR,
+            "fill-opacity": "0.9",
+            transform: `translate(${end[0]} ${end[1]}) rotate(${round2(angle)})`,
+          })
+        );
+      }
     }
 
     // 始点マーカー (ここから書く)
