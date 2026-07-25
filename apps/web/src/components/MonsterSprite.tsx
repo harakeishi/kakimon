@@ -1,17 +1,8 @@
 import type { CSSProperties } from "react";
-import type { Monster, MonsterStage } from "../domain/monster";
+import type { Monster } from "../domain/monster";
 import { findCosmetic, type EquipmentSlot } from "../domain/catalog/cosmetics";
+import { monsterEmoji } from "../domain/monsterSpecies";
 import { EmojiIcon } from "./EmojiIcon";
-
-// 段階ごとのモンスターの「種」を絵文字で表現。
-// 後でカスタムスプライトに差し替えるときも、ここを変えるだけで完結する。
-const STAGE_EMOJI: Record<MonsterStage, string> = {
-  egg: "🥚",
-  baby: "🐣",
-  child: "🦎",
-  teen: "🐲",
-  adult: "🐉",
-};
 
 // 各絵文字の「実際に絵が描かれている範囲」（OpenMoji 17.0.0 の 72x72 内を 0..1 に
 // 正規化）。emoji 画像は外周の余白量がアイテムごとにバラバラなので、名目サイズ
@@ -24,9 +15,17 @@ const CONTENT_BBOX: Record<
 > = {
   // モンスター段階（ベース）
   "1F423": { top: 0.12, bottom: 0.898, cy: 0.509 }, // 🐣 baby
+  "1F425": { top: 0.12, bottom: 0.9, cy: 0.51 }, // 🐥 chick
+  "1F424": { top: 0.12, bottom: 0.9, cy: 0.51 }, // 🐤 chick
+  "1F414": { top: 0.08, bottom: 0.92, cy: 0.5 }, // 🐔 chicken
   "1F98E": { top: 0.417, bottom: 0.75, cy: 0.583 }, // 🦎 child
+  "1F40A": { top: 0.22, bottom: 0.78, cy: 0.5 }, // 🐊 crocodile
   "1F432": { top: 0.139, bottom: 0.843, cy: 0.491 }, // 🐲 teen
   "1F409": { top: 0.056, bottom: 0.912, cy: 0.484 }, // 🐉 adult
+  "1F431": { top: 0.1, bottom: 0.9, cy: 0.5 }, // 🐱 cat face
+  "1F408": { top: 0.12, bottom: 0.88, cy: 0.5 }, // 🐈 cat
+  "1F406": { top: 0.12, bottom: 0.88, cy: 0.5 }, // 🐆 leopard
+  "1F981": { top: 0.08, bottom: 0.92, cy: 0.5 }, // 🦁 lion
   // あたま
   "1F9E2": { top: 0.194, bottom: 0.745, cy: 0.47 }, // 🧢
   "1F452": { top: 0.273, bottom: 0.657, cy: 0.465 }, // 👒
@@ -69,7 +68,7 @@ const SLOT_LAYOUT: Record<
 };
 
 export interface MonsterSpriteProps {
-  monster: Pick<Monster, "stage" | "lifeState" | "name"> &
+  monster: Pick<Monster, "species" | "stage" | "lifeState" | "name"> &
     Partial<Pick<Monster, "equipped">>;
   size?: number;
   className?: string;
@@ -102,10 +101,11 @@ export function MonsterSprite({
   ]
     .filter(Boolean)
     .join(" ");
+  const stageEmoji = monsterEmoji(monster.species, monster.stage);
 
   const base = (
     <EmojiIcon
-      emoji={STAGE_EMOJI[monster.stage]}
+      emoji={stageEmoji}
       size={size}
       alt={monster.name || "タマゴ"}
       className={cls}
@@ -126,7 +126,7 @@ export function MonsterSprite({
   };
 
   // ベース（モンスター）の中身の範囲。これを基準にアイテムを合わせる。
-  const baseBox = bboxOf(STAGE_EMOJI[monster.stage]);
+  const baseBox = bboxOf(stageEmoji);
   const baseHeight = baseBox.bottom - baseBox.top;
 
   return (

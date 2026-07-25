@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter @kakimon/web dev",
     "build": "pnpm -r build",
+    "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r typecheck",
     "preview": "pnpm --filter @kakimon/web preview"
   },

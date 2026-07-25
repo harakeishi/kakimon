@@ -1,6 +1,12 @@
 import { create } from "zustand";
-import type { LifeState, Monster, MonsterStage } from "../domain/monster";
+import type {
+  LifeState,
+  Monster,
+  MonsterSpeciesId,
+  MonsterStage,
+} from "../domain/monster";
 import {
+  chooseSpecies,
   equip as equipMonster,
   feed as feedMonster,
   gainExp,
@@ -68,6 +74,7 @@ export interface AdminMonsterPatch {
   cleanliness?: number;
   lifeState?: LifeState;
   stage?: MonsterStage;
+  species?: MonsterSpeciesId;
 }
 
 interface GameState {
@@ -84,6 +91,8 @@ interface GameState {
   init: () => Promise<void>;
   tick: () => Promise<void>;
   petMonster: () => Promise<void>;
+  /** 孵化前のタマゴから生まれる種族を選ぶ。 */
+  chooseMonsterSpecies: (species: MonsterSpeciesId) => Promise<boolean>;
   feedWith: (foodId: string) => Promise<boolean>;
   buyFood: (foodId: string) => Promise<boolean>;
   /** きせかえアイテムを買う。すでに持っていれば false（同じ物は 1 つで十分）。 */
@@ -109,6 +118,10 @@ interface GameState {
     wasDeceased: boolean;
     /** この学習で卵が孵化したか（命名フローへ誘導するため） */
     didHatch: boolean;
+    /** この学習で成長段階が進んだか */
+    evolved: boolean;
+    monsterSpecies: MonsterSpeciesId | null;
+    monsterStage: MonsterStage | null;
   }>;
   /** きょうのログインボーナスが受け取れるか */
   canClaimLoginBonus: () => boolean;
@@ -212,6 +225,16 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (next === m) return;
     await monsterRepo.save(next);
     set({ monster: next });
+  },
+
+  async chooseMonsterSpecies(species) {
+    const m = get().monster;
+    if (!m) return false;
+    const next = chooseSpecies(m, species);
+    if (next === m) return m.stage === "egg" && m.species === species;
+    await monsterRepo.save(next);
+    set({ monster: next });
+    return true;
   },
 
   async feedWith(foodId) {
@@ -375,6 +398,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const nextWallet = earn(wallet, effectiveSession.rewards.coins);
     let leveledUp = false;
     let didHatch = false;
+    let evolved = false;
     let nextMonster = monster;
     if (monster && !isDeceased) {
       // 卵 → 孵化（最初の学習で baby になる。命名は孵化後に行う）
@@ -384,8 +408,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         didHatch = true;
       }
       const before = m.level;
+      const beforeStage = m.stage;
       m = gainExp(m, effectiveSession.rewards.exp);
       leveledUp = m.level > before;
+      evolved = m.stage !== beforeStage;
       m = { ...m, totalSessions: (m.totalSessions ?? 0) + 1 };
       nextMonster = m;
     }
@@ -413,6 +439,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       leveledUp,
       wasDeceased: isDeceased,
       didHatch,
+      evolved,
+      monsterSpecies: nextMonster?.species ?? null,
+      monsterStage: nextMonster?.stage ?? null,
     };
   },
 
@@ -527,6 +556,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       exp: Math.max(0, Math.round(num(patch.exp, m.exp))),
       expToNext: Math.max(1, Math.round(num(patch.expToNext, m.expToNext))),
       stage: patch.stage ?? m.stage,
+      species: patch.species ?? m.species,
       lifeState: patch.lifeState ?? m.lifeState,
       stats: {
         ...m.stats,

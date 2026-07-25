@@ -29,7 +29,7 @@ export interface CheerReaction {
 }
 
 export interface MonsterCheerOverlayProps {
-  monster: Pick<Monster, "stage" | "lifeState" | "name">;
+  monster: Pick<Monster, "species" | "stage" | "lifeState" | "name">;
   reaction: CheerReaction | null;
 }
 

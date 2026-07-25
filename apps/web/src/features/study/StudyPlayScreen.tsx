@@ -7,6 +7,10 @@ import type {
   SessionResult,
 } from "@kakimon/plugin-api";
 import { calculateReward } from "../../domain/rewardCalculator";
+import type {
+  MonsterSpeciesId,
+  MonsterStage,
+} from "../../domain/monster";
 import { useGameStore } from "../../state/gameStore";
 import {
   MonsterCheerOverlay,
@@ -220,6 +224,9 @@ export function StudyPlayScreen() {
       leveledUp: boolean;
       wasDeceased: boolean;
       didHatch: boolean;
+      evolved: boolean;
+      monsterSpecies: MonsterSpeciesId | null;
+      monsterStage: MonsterStage | null;
     };
     try {
       applied = await applyReward(sessionRecord);
