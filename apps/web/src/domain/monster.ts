@@ -1,8 +1,15 @@
 // docs/04-domain-model.md と同期。仮置きステータスとロジック。
 
-export type LifeState = "healthy" | "weak" | "sick" | "dying" | "deceased";
+import {
+  DEFAULT_MONSTER_SPECIES_ID,
+  evolvedStageForLevel,
+  type MonsterSpeciesId,
+  type MonsterStage,
+} from "./monsterSpecies";
 
-export type MonsterStage = "egg" | "baby" | "child" | "teen" | "adult";
+export type { MonsterSpeciesId, MonsterStage } from "./monsterSpecies";
+
+export type LifeState = "healthy" | "weak" | "sick" | "dying" | "deceased";
 
 export interface MonsterStats {
   maxHp: number;
@@ -28,7 +35,7 @@ export interface MonsterEquipped {
 export interface Monster {
   id: string;
   name: string;
-  species: string;
+  species: MonsterSpeciesId;
   bornAt: string;
   stage: MonsterStage;
   level: number;
@@ -66,7 +73,7 @@ export function createInitialMonster(): Monster {
   return {
     id: cryptoRandomId(),
     name: "",
-    species: "placeholder-001",
+    species: DEFAULT_MONSTER_SPECIES_ID,
     bornAt: now,
     stage: "egg",
     level: 1,
@@ -112,6 +119,15 @@ export function hatch(m: Monster, nowMs: number = Date.now()): Monster {
     lastTickAt: now,
     condition: { hunger: 20, mood: 80, cleanliness: 90 },
   };
+}
+
+/** 孵化前のタマゴで、これから生まれる種族を選ぶ。 */
+export function chooseSpecies(
+  m: Monster,
+  species: MonsterSpeciesId
+): Monster {
+  if (m.stage !== "egg" || m.species === species) return m;
+  return { ...m, species };
 }
 
 /** 命名（trim 済み、空なら無視） */
@@ -320,6 +336,7 @@ export function gainExp(m: Monster, exp: number): Monster {
   }
   return {
     ...m,
+    stage: m.stage === "egg" ? "egg" : evolvedStageForLevel(level),
     level,
     exp: cur,
     expToNext: next,

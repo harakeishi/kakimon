@@ -6,6 +6,13 @@ import { findInterior } from "../../domain/catalog/interior";
 import { countOf } from "../../domain/inventory";
 import type { Monster } from "../../domain/monster";
 import { isEgg, needsNaming } from "../../domain/monster";
+import {
+  MONSTER_SPECIES,
+  MONSTER_STAGE_LABELS,
+  monsterEmoji,
+  monsterSpeciesOrDefault,
+  nextEvolution,
+} from "../../domain/monsterSpecies";
 import { EmojiIcon } from "../../components/EmojiIcon";
 import { MonsterSprite } from "../../components/MonsterSprite";
 import { PetReactionFx } from "../../components/PetReactionFx";
@@ -26,6 +33,9 @@ export function HomeScreen() {
   const inventory = useGameStore((s) => s.inventory);
   const room = useGameStore((s) => s.room);
   const petMonster = useGameStore((s) => s.petMonster);
+  const chooseMonsterSpecies = useGameStore(
+    (s) => s.chooseMonsterSpecies
+  );
   const feedWith = useGameStore((s) => s.feedWith);
   const rebirth = useGameStore((s) => s.rebirth);
   const nameMonster = useGameStore((s) => s.nameMonster);
@@ -149,6 +159,8 @@ export function HomeScreen() {
     : 0;
   const hpBar = barClass(hpRatio);
   const displayName = monster.name || (egg ? "タマゴ" : "?");
+  const species = monsterSpeciesOrDefault(monster.species);
+  const upcomingEvolution = nextEvolution(monster.stage);
 
   return (
     <>
@@ -255,8 +267,35 @@ export function HomeScreen() {
       {egg ? (
         <>
           <section className="card center">
-            <h2 style={{ margin: 0 }}>もうすぐ うまれるよ</h2>
+            <h2 style={{ margin: 0 }}>どの なかまに する？</h2>
             <p className="muted" style={{ marginTop: 4 }}>
+              うまれてくる なかまを えらんでね
+            </p>
+            <div className="species-grid">
+              {MONSTER_SPECIES.map((candidate) => {
+                const selected = candidate.id === monster.species;
+                return (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    className={`species-choice${selected ? " is-selected" : ""}`}
+                    aria-pressed={selected}
+                    onClick={() =>
+                      void chooseMonsterSpecies(candidate.id)
+                    }
+                  >
+                    <EmojiIcon
+                      emoji={candidate.stageEmoji.baby}
+                      size={52}
+                      alt=""
+                    />
+                    <strong>{candidate.name}</strong>
+                    <span>{selected ? "えらんだよ ✓" : candidate.description}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="muted species-hatch-hint">
               はじめての べんきょうで タマゴが かえるよ
             </p>
           </section>
@@ -274,7 +313,36 @@ export function HomeScreen() {
           <section className="card">
             <h2 style={{ margin: 0 }}>{displayName}</h2>
             <div className="muted" style={{ marginBottom: 10 }}>
+              {species.name} ・ {MONSTER_STAGE_LABELS[monster.stage]} ・{" "}
               {LIFE_STATE_LABELS[monster.lifeState]} ・ Lv{monster.level}
+            </div>
+
+            <div className="evolution-next">
+              {upcomingEvolution ? (
+                <>
+                  <EmojiIcon
+                    emoji={monsterEmoji(
+                      monster.species,
+                      upcomingEvolution.stage
+                    )}
+                    size={28}
+                    alt=""
+                  />
+                  <span>
+                    Lv{upcomingEvolution.level}で{" "}
+                    {MONSTER_STAGE_LABELS[upcomingEvolution.stage]}に しんか
+                  </span>
+                </>
+              ) : (
+                <>
+                  <EmojiIcon
+                    emoji={monsterEmoji(monster.species, "adult")}
+                    size={28}
+                    alt=""
+                  />
+                  <span>さいごまで しんかしたよ！</span>
+                </>
+              )}
             </div>
 
             <ConditionRow label="HP" value={hpRatio} bar={hpBar} />
@@ -370,6 +438,7 @@ export function HomeScreen() {
       {/* 命名モーダル: 孵化済み・名前空のときに自動表示。閉じられない（必須）。 */}
       {naming && (
         <NameMonsterModal
+          species={monster.species}
           onSubmit={async (name) => {
             await nameMonster(name);
           }}

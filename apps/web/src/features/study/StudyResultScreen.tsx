@@ -1,4 +1,12 @@
 import { useLocation, useNavigate } from "react-router-dom";
+import type {
+  MonsterSpeciesId,
+  MonsterStage,
+} from "../../domain/monster";
+import {
+  MONSTER_STAGE_LABELS,
+  monsterEmoji,
+} from "../../domain/monsterSpecies";
 import { EmojiIcon } from "../../components/EmojiIcon";
 
 interface ResultState {
@@ -10,6 +18,9 @@ interface ResultState {
     leveledUp: boolean;
     wasDeceased: boolean;
     didHatch: boolean;
+    evolved: boolean;
+    monsterSpecies: MonsterSpeciesId | null;
+    monsterStage: MonsterStage | null;
   };
   score: number;
   questionCount: number;
@@ -38,6 +49,13 @@ export function StudyResultScreen() {
       : scorePercent >= 50
         ? "がんばったね！"
         : "つぎは できるよ！";
+  const monsterResultEmoji =
+    state.reward.monsterSpecies && state.reward.monsterStage
+      ? monsterEmoji(
+          state.reward.monsterSpecies,
+          state.reward.monsterStage
+        )
+      : "🎉";
 
   return (
     <>
@@ -47,14 +65,20 @@ export function StudyResultScreen() {
             state.reward.wasDeceased
               ? "🌸"
               : state.reward.didHatch
-                ? "🐣"
-                : "🎉"
+                ? monsterResultEmoji
+                : state.reward.evolved
+                  ? monsterResultEmoji
+                  : "🎉"
           }
           size={72}
           alt=""
         />
         <h1 style={{ margin: 0 }}>
-          {state.reward.didHatch ? "タマゴが かえった！" : cheer}
+          {state.reward.didHatch
+            ? "タマゴが かえった！"
+            : state.reward.evolved
+              ? "しんかした！"
+              : cheer}
         </h1>
         <p className="muted">{state.pluginName} {state.questionCount}もん</p>
 
@@ -66,6 +90,15 @@ export function StudyResultScreen() {
             <p className="muted" style={{ margin: "8px 0 0" }}>
               ホームに もどって、なまえを つけてあげよう
             </p>
+          </div>
+        )}
+
+        {state.reward.evolved && state.reward.monsterStage && (
+          <div className="card evolution-result" style={{ marginTop: 12 }}>
+            <EmojiIcon emoji={monsterResultEmoji} size={56} alt="" />
+            <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>
+              {MONSTER_STAGE_LABELS[state.reward.monsterStage]}に しんか！
+            </div>
           </div>
         )}
 

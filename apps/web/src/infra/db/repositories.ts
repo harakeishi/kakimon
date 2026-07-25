@@ -1,6 +1,11 @@
 import { db } from "./dexie";
 import type { Monster } from "../../domain/monster";
 import { createInitialMonster } from "../../domain/monster";
+import {
+  DEFAULT_MONSTER_SPECIES_ID,
+  isMonsterSpeciesId,
+  type MonsterSpeciesId,
+} from "../../domain/monsterSpecies";
 import type { Wallet } from "../../domain/wallet";
 import { createInitialWallet } from "../../domain/wallet";
 import type {
@@ -29,17 +34,46 @@ function lastTickMs(m: Monster): number {
   return Number.isFinite(n) ? n : -Infinity;
 }
 
+/**
+ * species が自由文字列だった旧データを現行カタログへ寄せる。
+ * 旧 placeholder は、当時の見た目をなるべく保つため baby まではことり、
+ * child 以降はドラゴンとして扱う。IndexedDB の schema 形状は変わらない。
+ */
+function normalizeMonster(row: Monster): Monster {
+  const rawSpecies = (row as Monster & { species?: unknown }).species;
+  if (isMonsterSpeciesId(rawSpecies)) return row;
+
+  let species: MonsterSpeciesId = DEFAULT_MONSTER_SPECIES_ID;
+  if (
+    rawSpecies === "placeholder-001" &&
+    (row.stage === "child" ||
+      row.stage === "teen" ||
+      row.stage === "adult")
+  ) {
+    species = "dragon";
+  }
+  return { ...row, species };
+}
+
 export const monsterRepo = {
   async load(): Promise<Monster | null> {
     return db.transaction("rw", db.monster, async () => {
-      const rows = await db.monster.toArray();
+      const storedRows = await db.monster.toArray();
+      const rows = storedRows.map(normalizeMonster);
       if (rows.length === 0) return null;
-      if (rows.length === 1) return rows[0]!;
+      if (rows.length === 1) {
+        const normalized = rows[0]!;
+        if (normalized !== storedRows[0]) {
+          await db.monster.put(normalized);
+        }
+        return normalized;
+      }
       // 最も lastTickAt が新しいものを採用し、残りは削除する。
       rows.sort((a, b) => lastTickMs(b) - lastTickMs(a));
       const keep = rows[0]!;
       const remove = rows.slice(1).map((r) => r.id);
       await db.monster.bulkDelete(remove);
+      await db.monster.put(keep);
       return keep;
     });
   },

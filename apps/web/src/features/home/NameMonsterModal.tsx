@@ -1,4 +1,6 @@
 import { useState } from "react";
+import type { MonsterSpeciesId } from "../../domain/monster";
+import { monsterEmoji } from "../../domain/monsterSpecies";
 import { EmojiIcon } from "../../components/EmojiIcon";
 
 const SUGGESTIONS = ["もんちゃん", "ぴよた", "ぽよ", "むに", "ちび", "りる"];
@@ -6,6 +8,7 @@ const SUGGESTIONS = ["もんちゃん", "ぴよた", "ぽよ", "むに", "ちび
 const MAX_LEN = 8;
 
 interface NameMonsterModalProps {
+  species: MonsterSpeciesId;
   onSubmit: (name: string) => Promise<void>;
 }
 
@@ -13,7 +16,10 @@ interface NameMonsterModalProps {
  * 孵化直後に出る命名モーダル。閉じる手段を意図的に提供しない。
  * 名前は 1〜MAX_LEN 文字。空白だけは弾く。
  */
-export function NameMonsterModal({ onSubmit }: NameMonsterModalProps) {
+export function NameMonsterModal({
+  species,
+  onSubmit,
+}: NameMonsterModalProps) {
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const trimmed = name.trim();
@@ -32,7 +38,7 @@ export function NameMonsterModal({ onSubmit }: NameMonsterModalProps) {
   return (
     <div className="modal-mask">
       <div className="modal">
-        <EmojiIcon emoji="🐣" size={72} alt="" />
+        <EmojiIcon emoji={monsterEmoji(species, "baby")} size={72} alt="" />
         <h2 style={{ margin: "8px 0 4px" }}>うまれた！</h2>
         <p className="muted" style={{ marginTop: 0 }}>
           なまえを つけてあげよう

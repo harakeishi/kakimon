@@ -4,6 +4,10 @@ import { FOODS } from "../../domain/catalog/foods";
 import { COSMETICS } from "../../domain/catalog/cosmetics";
 import { countOf } from "../../domain/inventory";
 import type { LifeState, MonsterStage } from "../../domain/monster";
+import {
+  MONSTER_SPECIES,
+  type MonsterSpeciesId,
+} from "../../domain/monsterSpecies";
 import { EmojiIcon } from "../../components/EmojiIcon";
 
 const LIFE_STATES: LifeState[] = [
@@ -49,6 +53,9 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
     monster?.lifeState ?? "healthy"
   );
   const [stage, setStage] = useState<MonsterStage>(monster?.stage ?? "egg");
+  const [species, setSpecies] = useState<MonsterSpeciesId>(
+    monster?.species ?? "chick"
+  );
   const [items, setItems] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       FOODS.map((f) => [f.id, String(countOf(inventory, f.id, "food"))])
@@ -82,6 +89,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
         cleanliness: toNum(cleanliness, monster.condition.cleanliness),
         lifeState,
         stage,
+        species,
       });
     }
     for (const food of FOODS) {
@@ -189,6 +197,21 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                     {LIFE_STATES.map((s) => (
                       <option key={s} value={s}>
                         {s}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="admin-field">
+                  <span>しゅぞく</span>
+                  <select
+                    value={species}
+                    onChange={(e) =>
+                      setSpecies(e.target.value as MonsterSpeciesId)
+                    }
+                  >
+                    {MONSTER_SPECIES.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
                       </option>
                     ))}
                   </select>

@@ -14,12 +14,22 @@ const outDir = join(webRoot, "public", "emoji");
 
 // アプリで実際に表示する絵文字のコードポイント (大文字16進)
 const EMOJI_CODEPOINTS = [
-  // モンスター進化段階
+  // モンスター進化段階（ことり）
   "1F95A", // 🥚 egg (stage: egg)
   "1F423", // 🐣 hatching chick (stage: baby)
-  "1F98E", // 🦎 lizard (stage: child)
+  "1F425", // 🐥 chick (stage: child)
+  "1F424", // 🐤 chick (stage: teen)
+  "1F414", // 🐔 chicken (stage: adult)
+  // モンスター進化段階（ドラゴン）
+  "1F98E", // 🦎 lizard (stage: baby)
+  "1F40A", // 🐊 crocodile (stage: child)
   "1F432", // 🐲 dragon face (stage: teen)
   "1F409", // 🐉 dragon (stage: adult)
+  // モンスター進化段階（ねこ）
+  "1F431", // 🐱 cat face (stage: baby)
+  "1F408", // 🐈 cat (stage: child)
+  "1F406", // 🐆 leopard (stage: teen)
+  "1F981", // 🦁 lion (stage: adult)
   "1F338", // 🌸 cherry blossom (deceased)
 
   // ごはん
