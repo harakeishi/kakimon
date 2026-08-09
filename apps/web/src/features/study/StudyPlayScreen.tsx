@@ -61,6 +61,33 @@ function saveStrokeGuide(value: boolean): void {
   }
 }
 
+// 1 セッションの問題数。プラグインが manifest.questionCounts を出しているときだけ
+// コース選択画面で選ばせる（例: こっきクイズの 3 / 5 / 10 問）。宣言していない
+// プラグインは従来どおりこの既定値で動く。選択はデバイスに残す（localStorage）。
+const DEFAULT_QUESTION_COUNT = 5;
+const QUESTION_COUNT_STORAGE_KEY = "kakimon.questionCount";
+
+function loadQuestionCount(choices: number[] | undefined): number {
+  if (!choices || choices.length === 0) return DEFAULT_QUESTION_COUNT;
+  try {
+    const saved = Number(localStorage.getItem(QUESTION_COUNT_STORAGE_KEY));
+    if (choices.includes(saved)) return saved;
+  } catch {
+    // localStorage が使えない環境(プライベートモード等)でも続行する
+  }
+  return choices.includes(DEFAULT_QUESTION_COUNT)
+    ? DEFAULT_QUESTION_COUNT
+    : choices[0]!;
+}
+
+function saveQuestionCount(value: number): void {
+  try {
+    localStorage.setItem(QUESTION_COUNT_STORAGE_KEY, String(value));
+  } catch {
+    // 同上
+  }
+}
+
 interface FinalizeArgs {
   difficulty: DifficultyOption;
   pluginId: string;
@@ -77,7 +104,11 @@ export function StudyPlayScreen() {
   const applyReward = useGameStore((s) => s.applyReward);
   const monster = useGameStore((s) => s.monster);
 
+  const questionCounts = plugin?.manifest.questionCounts;
   const [difficulty, setDifficulty] = useState<DifficultyOption | null>(null);
+  const [questionCount, setQuestionCount] = useState<number>(() =>
+    loadQuestionCount(questionCounts)
+  );
   const [lenient, setLenient] = useState<boolean>(loadLenient);
   const [strokeGuide, setStrokeGuide] = useState<boolean>(loadStrokeGuide);
   const [progressLabel, setProgressLabel] = useState("");
@@ -144,7 +175,7 @@ export function StudyPlayScreen() {
         target,
         {
           difficulty: difficulty.key,
-          questionCount: 5,
+          questionCount,
           // lenient: やさしいはんてい。プラグインがなぞり判定の許容度を上げる。
           // strokeGuide: かきじゅんガイド。いま書く 1 画の始点・方向を示す。
           options: { lenient, strokeGuide },
@@ -251,6 +282,9 @@ export function StudyPlayScreen() {
       byLevel.set(d.level, arr);
     }
     const levels = [...byLevel.keys()].sort((a, b) => a - b);
+    // 「やさしいはんてい」「かきじゅんガイド」はなぞり書き専用の設定。
+    // クイズ系のプラグインでは意味を持たないので出さない。
+    const isWriting = plugin.manifest.category === "writing";
     return (
       <>
         <header className="row">
@@ -262,48 +296,75 @@ export function StudyPlayScreen() {
         <p className="muted" style={{ margin: "0 4px" }}>
           コースを えらんでね
         </p>
-        <button
-          type="button"
-          className={`mode-toggle${lenient ? " is-on" : ""}`}
-          role="switch"
-          aria-checked={lenient}
-          onClick={() => {
-            const next = !lenient;
-            setLenient(next);
-            saveLenient(next);
-          }}
-        >
-          <span className="mode-toggle__text">
-            <span className="mode-toggle__title">やさしい はんてい</span>
-            <span className="mode-toggle__hint">
-              ちいさい こ むけ。はんていを ゆるくするよ
+        {questionCounts && questionCounts.length > 0 && (
+          <section className="card" style={{ padding: 12 }}>
+            <h3 style={{ margin: "0 0 8px" }}>なんもん やる？</h3>
+            <div className="count-picker" role="group" aria-label="もんだいすう">
+              {questionCounts.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className={`count-chip${
+                    n === questionCount ? " is-selected" : ""
+                  }`}
+                  aria-pressed={n === questionCount}
+                  onClick={() => {
+                    setQuestionCount(n);
+                    saveQuestionCount(n);
+                  }}
+                >
+                  {n}もん
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+        {isWriting && (
+          <button
+            type="button"
+            className={`mode-toggle${lenient ? " is-on" : ""}`}
+            role="switch"
+            aria-checked={lenient}
+            onClick={() => {
+              const next = !lenient;
+              setLenient(next);
+              saveLenient(next);
+            }}
+          >
+            <span className="mode-toggle__text">
+              <span className="mode-toggle__title">やさしい はんてい</span>
+              <span className="mode-toggle__hint">
+                ちいさい こ むけ。はんていを ゆるくするよ
+              </span>
             </span>
-          </span>
-          <span className="mode-toggle__switch" aria-hidden>
-            <span className="mode-toggle__knob" />
-          </span>
-        </button>
-        <button
-          type="button"
-          className={`mode-toggle${strokeGuide ? " is-on" : ""}`}
-          role="switch"
-          aria-checked={strokeGuide}
-          onClick={() => {
-            const next = !strokeGuide;
-            setStrokeGuide(next);
-            saveStrokeGuide(next);
-          }}
-        >
-          <span className="mode-toggle__text">
-            <span className="mode-toggle__title">かきじゅん ガイド</span>
-            <span className="mode-toggle__hint">
-              くるまと やじるしで かきはじめと むきを おしえるよ
+            <span className="mode-toggle__switch" aria-hidden>
+              <span className="mode-toggle__knob" />
             </span>
-          </span>
-          <span className="mode-toggle__switch" aria-hidden>
-            <span className="mode-toggle__knob" />
-          </span>
-        </button>
+          </button>
+        )}
+        {isWriting && (
+          <button
+            type="button"
+            className={`mode-toggle${strokeGuide ? " is-on" : ""}`}
+            role="switch"
+            aria-checked={strokeGuide}
+            onClick={() => {
+              const next = !strokeGuide;
+              setStrokeGuide(next);
+              saveStrokeGuide(next);
+            }}
+          >
+            <span className="mode-toggle__text">
+              <span className="mode-toggle__title">かきじゅん ガイド</span>
+              <span className="mode-toggle__hint">
+                くるまと やじるしで かきはじめと むきを おしえるよ
+              </span>
+            </span>
+            <span className="mode-toggle__switch" aria-hidden>
+              <span className="mode-toggle__knob" />
+            </span>
+          </button>
+        )}
         {levels.map((lv) => (
           <section key={lv} className="card" style={{ padding: 12 }}>
             <h3 style={{ margin: "0 0 8px" }}>レベル {lv}</h3>

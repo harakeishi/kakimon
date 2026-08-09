@@ -50,6 +50,13 @@ export interface SessionConfig {
   /** プラグイン固有の任意設定 */
   options?: Record<string, unknown>;
 }
+```
+
+`PluginManifest.questionCounts` に候補（例 `[3, 5, 10]`）を書くと、コース選択
+画面に「なんもん やる？」の選択肢が出て、選ばれた値が `SessionConfig.questionCount`
+として渡る。省略したプラグインには Host の既定値（5）がそのまま渡る。
+
+```ts
 
 export interface SessionContext {
   /** セッションが完了したことを Plugin Host に通知する */
@@ -229,7 +236,26 @@ exp    = floor( baseExp(difficulty)   × overallScore )
 - 難易度: 学年別配当漢字（1〜6 年）。
 - 出題: 学年 → 単元 → 漢字。読みも一緒に表示する。
 
-3 つのプラグインは共通の「kakitori ラッパー」を共有する形にし、
+### `@kakimon/plugin-quiz-flag`
+
+- マニフェスト: `id="io.kakimon.quiz.flag"`, category `"other"`,
+  対象年齢 4〜10 歳。書き取り以外の形式も同じ契約で載ることを示す実例。
+- 難易度: よく見る国 / アジア / ヨーロッパ / アメリカ大陸 /
+  アフリカ・オセアニア / 世界ぜんぶ。
+- 出題数: `questionCounts: [3, 5, 10]`。プールが問題数より少ないコースでは
+  シャッフルし直して使い回す（同じ国が連続しないようにだけ調整する）。
+- 画面構成: 上部に国旗、中部に 3 択、下部左に国のシルエット、下部右に
+  その国の名物を身に着けたり楽しんだりしているひよこ。シルエットとひよこは
+  出題時から見せる（国旗単独では難しすぎるため、形・名物・国旗をセットで
+  覚えさせる狙い）。
+- 素材: 国旗と名物の絵文字は OpenMoji（`public/emoji/`）。国のシルエットは
+  world-atlas (Natural Earth 50m) から生成した SVG path を
+  `src/countryShapes.ts` に埋め込んでおり、実行時の依存はない。
+- スコア: 1 問正解 = 1.0、不正解 = 0。`overallScore` はその平均。
+
+### 共通化
+
+3 つの書き取りプラグインは共通の「kakitori ラッパー」を共有する形にし、
 `packages/plugin-writing-shared/` に切り出すのが妥当。
 
 `@kakimon/plugin-writing-shared` は source-only パッケージ（plugin-api と

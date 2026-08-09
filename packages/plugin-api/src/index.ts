@@ -26,6 +26,12 @@ export interface PluginManifest {
   category: PluginCategory;
   /** 一覧表示で使う絵文字 or 短いラベル (MVP では絵文字でOK) */
   icon: string;
+  /**
+   * 1 セッションの問題数として、ユーザに選ばせたい候補 (例: [3, 5, 10])。
+   * 指定するとコース選択画面に「なんもん やる？」の選択肢が出て、選ばれた値が
+   * SessionConfig.questionCount として渡る。省略時は Host の既定値のみを使う。
+   */
+  questionCounts?: number[];
 }
 
 export interface SessionConfig {
@@ -119,6 +125,22 @@ export function validateManifest(m: PluginManifest): void {
   if (!m.version) throw new Error(`plugin ${m.id}: version is required`);
   if (!Array.isArray(m.difficulties) || !m.difficulties.length) {
     throw new Error(`plugin ${m.id}: at least one difficulty is required`);
+  }
+  if (m.questionCounts !== undefined) {
+    if (!Array.isArray(m.questionCounts) || m.questionCounts.length === 0) {
+      throw new Error(
+        `plugin ${m.id}: questionCounts must be a non-empty array when present`
+      );
+    }
+    for (const n of m.questionCounts) {
+      if (!Number.isInteger(n) || n < 1) {
+        throw new Error(
+          `plugin ${m.id}: questionCounts must contain positive integers (got ${String(
+            n
+          )})`
+        );
+      }
+    }
   }
   const seen = new Set<string>();
   for (const d of m.difficulties) {

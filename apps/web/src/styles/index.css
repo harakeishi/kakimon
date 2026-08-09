@@ -469,6 +469,169 @@ h3 {
   color: #92400e;
 }
 
+/* こっきクイズ（@kakimon/plugin-quiz-flag）─────────────────
+   上部=国旗 / 中部=3択 / 下部左=国のかたち / 下部右=ひよこ。 */
+.kakimon-plugin-quiz-flag {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.kp-flagquiz__flag {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  background: #fff;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+}
+.kp-flagquiz__flag img {
+  /* 国旗は横長。枠からはみ出さないよう幅を優先で縮める */
+  max-width: 100%;
+  height: auto;
+}
+.kp-flagquiz__choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.kp-flagquiz__choice {
+  width: 100%;
+  min-height: 54px;
+  padding: 12px 14px;
+  background: #fffbe6;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+  cursor: pointer;
+}
+.kp-flagquiz__choice:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.kp-flagquiz__choice:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.kp-flagquiz__choice.is-correct {
+  background: #dcfce7;
+  border-color: var(--good);
+  color: #14532d;
+  opacity: 1;
+}
+.kp-flagquiz__choice.is-wrong {
+  background: #fee2e2;
+  border-color: var(--bad);
+  color: #7f1d1d;
+  opacity: 1;
+}
+.kp-flagquiz__feedback {
+  /* 判定が出た瞬間に下のレイアウトが跳ねないよう、常に 1 行分確保する */
+  min-height: 1.5rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+.kp-flagquiz__feedback.is-correct {
+  color: var(--good);
+}
+.kp-flagquiz__feedback.is-wrong {
+  color: var(--bad);
+}
+.kp-flagquiz__bottom {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.kp-flagquiz__shape,
+.kp-flagquiz__chick-slot {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+  padding: 8px;
+  background: #fff;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+}
+.kp-flagquiz__shape-svg {
+  width: 96px;
+  height: 96px;
+  fill: var(--accent);
+}
+.kp-flagquiz__chick-stage {
+  position: relative;
+  width: 116px;
+  height: 100px;
+  display: grid;
+  place-items: center;
+}
+.kp-flagquiz__chick-base {
+  /* ひよこ本体。かぶりもの・持ちものはこの上に絶対配置で重ねる */
+  position: relative;
+  z-index: 1;
+}
+.kp-flagquiz__chick-wear {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  pointer-events: none;
+}
+.kp-flagquiz__chick-item {
+  position: absolute;
+  bottom: 2px;
+  z-index: 2;
+  pointer-events: none;
+  animation: flagquiz-bob 1.8s ease-in-out infinite;
+}
+.kp-flagquiz__chick-item--left {
+  left: 0;
+}
+.kp-flagquiz__chick-item--right {
+  right: 0;
+  animation-delay: 0.6s;
+}
+@keyframes flagquiz-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* もんだいすう えらび（manifest.questionCounts があるプラグインだけ）──── */
+.count-picker {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+}
+.count-chip {
+  min-height: 52px;
+  padding: 12px 8px;
+  background: #fffbe6;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text);
+  cursor: pointer;
+}
+.count-chip:active {
+  transform: translateY(1px);
+}
+.count-chip.is-selected {
+  background: var(--primary);
+  border-color: var(--primary-strong);
+  color: #fff;
+}
+
 /* 難易度（コース）グリッド ─────────────────────────────── */
 .difficulty-grid {
   display: grid;
@@ -972,7 +1135,8 @@ h3 {
   .pet-particle,
   .cheer-bubble,
   .cheer-overlay__art--happy,
-  .cheer-overlay__art--cheer {
+  .cheer-overlay__art--cheer,
+  .kp-flagquiz__chick-item {
     transition: none;
     animation: none;
   }

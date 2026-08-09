@@ -16,6 +16,7 @@
     "@k1low/hanzi-writer-data-jp": "0.8.0",
     "@k1low/kakitori-data": "0.8.0",
     "@kakimon/plugin-api": "workspace:*",
+    "@kakimon/plugin-quiz-flag": "workspace:*",
     "@kakimon/plugin-writing-hiragana": "workspace:*",
     "@kakimon/plugin-writing-number": "workspace:*",
     "dexie": "4.0.10",

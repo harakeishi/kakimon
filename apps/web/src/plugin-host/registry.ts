@@ -1,5 +1,6 @@
 import type { ContentPlugin } from "@kakimon/plugin-api";
 import { validateManifest } from "@kakimon/plugin-api";
+import flagQuizPlugin from "@kakimon/plugin-quiz-flag";
 import hiraganaPlugin from "@kakimon/plugin-writing-hiragana";
 import numberPlugin from "@kakimon/plugin-writing-number";
 
@@ -34,6 +35,7 @@ function buildRegistry(candidates: ContentPlugin[]): ContentPlugin[] {
 export const plugins: readonly ContentPlugin[] = buildRegistry([
   hiraganaPlugin,
   numberPlugin,
+  flagQuizPlugin,
 ]);
 
 export function findPlugin(id: string): ContentPlugin | undefined {

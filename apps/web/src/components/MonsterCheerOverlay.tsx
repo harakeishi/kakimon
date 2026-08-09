@@ -90,8 +90,10 @@ export function MonsterCheerOverlay({
   return (
     <div className="cheer-overlay" aria-live="polite">
       {bubble && (
+        // key は兄弟間で衝突させないこと。吹き出しとモンスターで同じ nonce を
+        // そのまま使うと重複キーになり、古い吹き出しが消えずに積み上がる。
         <div
-          key={bubble.nonce}
+          key={`bubble-${bubble.nonce}`}
           className={`cheer-bubble ${
             bubble.correct ? "" : "cheer-bubble--cheer"
           }`}
@@ -101,7 +103,7 @@ export function MonsterCheerOverlay({
       )}
       {/* key に nonce を使い、リアクションごとに要素を貼り替えて
           一発アニメーション（jump / wiggle）を確実に再生させる。 */}
-      <div key={bubble?.nonce ?? "idle"} className={artCls}>
+      <div key={`art-${bubble?.nonce ?? "idle"}`} className={artCls}>
         <MonsterSprite monster={monster} size={84} />
       </div>
     </div>
