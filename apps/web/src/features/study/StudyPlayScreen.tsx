@@ -40,7 +40,8 @@ function saveLenient(value: boolean): void {
 }
 
 // 「かきじゅんガイド」モードの保存キー。書き順がわからない子向けに、いま書く
-// べき 1 画の始点・方向をオーバーレイで示す。プラグインへは
+// べき 1 画の始点・方向をオーバーレイで示す（始点のくるまが指に追随し、
+// 進む向きの矢印が順に点滅する）。プラグインへは
 // SessionConfig.options.strokeGuide として渡る。設定はデバイスに残す（localStorage）。
 const STROKE_GUIDE_STORAGE_KEY = "kakimon.strokeGuide";
 
@@ -356,7 +357,7 @@ export function StudyPlayScreen() {
             <span className="mode-toggle__text">
               <span className="mode-toggle__title">かきじゅん ガイド</span>
               <span className="mode-toggle__hint">
-                かきはじめと むきを ひかりで おしえるよ
+                くるまと やじるしで かきはじめと むきを おしえるよ
               </span>
             </span>
             <span className="mode-toggle__switch" aria-hidden>

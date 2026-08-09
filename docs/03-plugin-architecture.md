@@ -262,6 +262,11 @@ exp    = floor( baseExp(difficulty)   × overallScore )
 同方式）として作成済み。現状は「かきじゅんガイド」モードのオーバーレイ描画
 （`createStrokeGuide` / `wrapLoadersForGuide`。host が
 `SessionConfig.options.strokeGuide` を true で渡すと有効）のみを提供する。
+ガイドは、いま書くべき 1 画の中央線・始点リングに加えて、
+書き始めの位置に置いた「くるま」（指を下ろしている間、中央線の上を指に
+追随して走る）と、始点側から終点側へ順に点滅する向き矢印を描く。
+くるまは kakitori の描画レイヤで pointer イベントを観測するだけで、
+なぞり判定には干渉しない。
 ローダ（charDataLoader / configLoader）やセッション進行など kakitori
 ラッパー本体の共通化は今後の課題。
 
