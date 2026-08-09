@@ -573,12 +573,28 @@ h3 {
 }
 
 /* かきじゅんガイドのオーバーレイ（plugin-writing-shared が描画）──── */
-/* 「視差効果を減らす」設定では、流れる光の粒アニメーションを出さない。
-   JS 側 (createStrokeGuide) でも matchMedia を見て生成自体を抑止しており、
-   これはその保険。静的なガイド線・矢印・始点マーカーは残る。 */
+/* 始点で待っているくるまの上下のゆれ。位置と向きは外側 <g> の transform
+   属性で決まるので、CSS transform は内側 <g> にだけ当てる（CSS transform は
+   transform 属性を上書きしてしまうため）。 */
+@keyframes ksg-car-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+.ksg-car__body {
+  animation: ksg-car-bob 1.2s ease-in-out infinite;
+}
+/* 「視差効果を減らす」設定では、動きのある演出を止める。
+   JS 側 (createStrokeGuide) でも matchMedia を見て矢印の点滅 <animate> を
+   作らないようにしており、これはその保険。静的なガイド線・矢印・始点リング・
+   くるま（指への追随も含む）は残る。 */
 @media (prefers-reduced-motion: reduce) {
-  .ksg-anim {
-    display: none;
+  .ksg-car__body {
+    animation: none;
   }
 }
 
