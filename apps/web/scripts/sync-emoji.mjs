@@ -75,7 +75,101 @@ const EMOJI_CODEPOINTS = [
   "1FA94", // 🪔 diya lamp
   "1F388", // 🎈 balloon
   "1F335", // 🌵 cactus
+
+  // こっきクイズ（@kakimon/plugin-quiz-flag）の「ひよこが たのしんでいる もの」。
+  // packages/plugin-quiz-flag/src/countries.ts の items / wear と対応する。
+  // 追加・変更したらここも更新すること（漏れた場合はネイティブ絵文字へ
+  // フォールバックするだけで壊れはしない）。
+  "1F363", // 🍣 sushi (JP)
+  "1F5FB", // 🗻 mount fuji (JP)
+  "1F372", // 🍲 pot of food (KR)
+  "1F3A4", // 🎤 microphone (KR)
+  "1F43C", // 🐼 panda (CN)
+  "1F95F", // 🥟 dumpling (CN)
+  "1F35B", // 🍛 curry rice (IN)
+  "1F405", // 🐅 tiger (IN)
+  "1F418", // 🐘 elephant (TH)
+  "1F364", // 🍤 fried shrimp (TH)
+  "1F35C", // 🍜 steaming bowl (VN)
+  "1F30B", // 🌋 volcano (ID)
+  "1F9A7", // 🦧 orangutan (ID)
+  "1F959", // 🥙 stuffed flatbread (TR)
+  "1F355", // 🍕 pizza (IT)
+  "1F35D", // 🍝 spaghetti (IT)
+  "1F950", // 🥐 croissant (FR)
+  "1F956", // 🥖 baguette bread (FR)
+  "1F968", // 🥨 pretzel (DE)
+  "1F697", // 🚗 automobile (DE)
+  "1FAD6", // 🫖 teapot (GB)
+  "1F958", // 🥘 shallow pan of food (ES)
+  "1F483", // 💃 woman dancing (ES)
+  "1F9C0", // 🧀 cheese wedge (CH)
+  "1F3D4", // 🏔 snow-capped mountain (CH)
+  "1F337", // 🌷 tulip (NL)
+  "1F6B2", // 🚲 bicycle (NL)
+  "1F3DB", // 🏛 classical building (GR)
+  "1FAD2", // 🫒 olive (GR)
+  "1F98C", // 🦌 deer (SE)
+  "1F332", // 🌲 evergreen tree (SE)
+  "1F41F", // 🐟 fish (NO)
+  "2744",  // ❄️ snowflake (NO)
+  "1FA86", // 🪆 nesting dolls (RU)
+  "1F43B", // 🐻 bear (RU)
+  "1F354", // 🍔 hamburger (US)
+  "1F5FD", // 🗽 statue of liberty (US)
+  "1F341", // 🍁 maple leaf (CA)
+  "1F3D2", // 🏒 ice hockey (CA)
+  "1F32E", // 🌮 taco (MX)
+  "26BD",  // ⚽ soccer ball (BR / NG)
+  "1F99C", // 🦜 parrot (BR)
+  "1F969", // 🥩 cut of meat (AR)
+  "1F57A", // 🕺 man dancing (AR)
+  "1F999", // 🦙 llama (PE)
+  "1F954", // 🥔 potato (PE)
+  "1F5FF", // 🗿 moai (CL)
+  "1F347", // 🍇 grapes (CL)
+  "1F42B", // 🐫 two-hump camel (EG)
+  "1F408", // 🐈 cat (EG)
+  "1F981", // 🦁 lion (KE)
+  "1F992", // 🦒 giraffe (KE)
+  "1F993", // 🦓 zebra (ZA)
+  "1F48E", // 💎 gem stone (ZA)
+  "1F941", // 🥁 drum (NG)
+  "1F54C", // 🕌 mosque (MA)
+  "1F42A", // 🐪 camel (MA)
+  "2615",  // ☕ hot beverage (ET)
+  "1F3C3", // 🏃 person running (ET)
+  "1F412", // 🐒 monkey (MG)
+  "1F334", // 🌴 palm tree (MG)
+  "1F998", // 🦘 kangaroo (AU)
+  "1F428", // 🐨 koala (AU)
+  "1F411", // 🐑 ewe (NZ)
+  "1F95D", // 🥝 kiwi fruit (NZ)
 ];
+
+// こっきクイズで出題する国。国旗の絵文字は地域表示記号 2 文字の組み合わせなので、
+// ISO 3166-1 alpha-2 から機械的に導出する。
+// packages/plugin-quiz-flag/src/countries.ts の COUNTRIES と対応させること。
+const FLAG_ISO_CODES = [
+  "JP", "KR", "CN", "IN", "TH", "VN", "ID", "TR",
+  "IT", "FR", "DE", "GB", "ES", "CH", "NL", "GR", "SE", "NO", "RU",
+  "US", "CA", "MX", "BR", "AR", "PE", "CL",
+  "EG", "KE", "ZA", "NG", "MA", "ET", "MG",
+  "AU", "NZ",
+];
+
+const REGIONAL_INDICATOR_A = 0x1f1e6;
+
+for (const iso of FLAG_ISO_CODES) {
+  const name = [...iso]
+    .map((c) =>
+      (REGIONAL_INDICATOR_A + c.charCodeAt(0) - "A".charCodeAt(0))
+        .toString(16)
+        .toUpperCase()
+    )
+    .join("-");
+  EMOJI_CODEPOINTS.push(name);
+}
 
 const pkgRoot = await realpath(
   join(webRoot, "node_modules", "openmoji")

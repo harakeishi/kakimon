@@ -24,11 +24,14 @@
 
 - **書き取りエンジン**: [@k1low/kakitori](https://github.com/k1LoW/kakitori) (MIT)
   と関連データパッケージ。
-- **モンスター・食べ物・UI アイコン**: [OpenMoji](https://openmoji.org/) (CC BY-SA 4.0)。
+- **モンスター・食べ物・国旗・UI アイコン**: [OpenMoji](https://openmoji.org/) (CC BY-SA 4.0)。
   ひらがな書き取りで利用する文字データは [@k1low/hanzi-writer-data-jp](https://www.npmjs.com/package/@k1low/hanzi-writer-data-jp)
   および [@k1low/kakitori-data](https://www.npmjs.com/package/@k1low/kakitori-data)
   をビルド時にローカルへ同期して利用する (`scripts/sync-kakitori-data.mjs` /
   `scripts/sync-emoji.mjs`)。
+- **国のシルエット**: [world-atlas](https://github.com/topojson/world-atlas)
+  (Natural Earth 50m, public domain) から生成した SVG path を
+  `packages/plugin-quiz-flag/src/countryShapes.ts` に埋め込んでいる。
 
 ## ライセンス
 
