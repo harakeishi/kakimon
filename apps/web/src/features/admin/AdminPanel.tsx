@@ -6,13 +6,7 @@ import { countOf } from "../../domain/inventory";
 import type { LifeState, MonsterStage } from "../../domain/monster";
 import { EmojiIcon } from "../../components/EmojiIcon";
 
-const LIFE_STATES: LifeState[] = [
-  "healthy",
-  "weak",
-  "sick",
-  "dying",
-  "deceased",
-];
+const LIFE_STATES: LifeState[] = ["healthy", "weak", "sick", "dying"];
 const STAGES: MonsterStage[] = ["egg", "baby", "child", "teen", "adult"];
 
 /** 入力文字列を数値へ。空や不正は fallback を返す。 */

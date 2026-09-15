@@ -17,7 +17,6 @@ const LIFE_STATE_LABELS: Record<Monster["lifeState"], string> = {
   weak: "ちょっと よわってる",
   sick: "ぐあいが わるい",
   dying: "あぶないよ！",
-  deceased: "おやすみちゅう",
 };
 
 export function HomeScreen() {
@@ -27,13 +26,10 @@ export function HomeScreen() {
   const room = useGameStore((s) => s.room);
   const petMonster = useGameStore((s) => s.petMonster);
   const feedWith = useGameStore((s) => s.feedWith);
-  const rebirth = useGameStore((s) => s.rebirth);
   const nameMonster = useGameStore((s) => s.nameMonster);
   const loginBonus = useGameStore((s) => s.loginBonus);
   const canClaimLoginBonus = useGameStore((s) => s.canClaimLoginBonus);
   const claimLoginBonus = useGameStore((s) => s.claimLoginBonus);
-  const [confirmRebirth, setConfirmRebirth] = useState(false);
-  const [showFarewell, setShowFarewell] = useState(false);
   // ログインボーナス: 受け取れる日は起動時にモーダルを出す。
   // 受け取り後は獲得結果（コイン・連続日数）を表示してから閉じる。
   const [bonusOpen, setBonusOpen] = useState(false);
@@ -103,15 +99,6 @@ export function HomeScreen() {
     }
   }
 
-  // 死亡を検知したら「お別れ」モーダルを 1 度だけ出す。
-  useEffect(() => {
-    if (monster?.lifeState === "deceased") {
-      setShowFarewell(true);
-    } else {
-      setShowFarewell(false);
-    }
-  }, [monster?.id, monster?.lifeState]);
-
   // へやのもよう（壁紙・床・家具）を解決する。未設定ならデフォルトの見た目。
   const decor = useMemo(() => {
     const wallpaper = room.wallpaperId
@@ -137,7 +124,6 @@ export function HomeScreen() {
   }, [monster]);
 
   if (!monster) return null;
-  const isDeceased = monster.lifeState === "deceased";
   const egg = isEgg(monster);
   const naming = needsNaming(monster);
   const dying = monster.lifeState === "dying";
@@ -172,30 +158,6 @@ export function HomeScreen() {
         </div>
       )}
 
-      {isDeceased && (
-        <div className="card center">
-          <EmojiIcon emoji="🌸" size={64} alt="" />
-          <h2 style={{ margin: "8px 0 4px" }}>
-            {displayName} は おやすみちゅう
-          </h2>
-          <p className="muted" style={{ marginTop: 0 }}>
-            これまで ありがとう。
-            <br />
-            また あたらしい タマゴから はじめられるよ。
-          </p>
-          <button
-            className="btn btn--big btn--block btn--success"
-            onClick={() => setConfirmRebirth(true)}
-          >
-            <EmojiIcon emoji="🥚" size={28} alt="" />
-            <span style={{ marginLeft: 8 }}>あたらしい タマゴで はじめる</span>
-          </button>
-          <p className="muted" style={{ fontSize: "0.8rem", marginBottom: 0 }}>
-            コインと もちもの は そのまま のこるよ
-          </p>
-        </div>
-      )}
-
       <section
         className="monster-stage"
         style={decor.wallpaper ? { background: decor.wallpaper } : undefined}
@@ -219,16 +181,10 @@ export function HomeScreen() {
           className={`monster-art${feeding ? " monster-art--eating" : ""}${
             petFx ? " monster-art--petting" : ""
           }`}
-          onClick={egg || isDeceased ? undefined : handlePet}
-          role={egg || isDeceased ? undefined : "button"}
-          aria-label={
-            egg
-              ? "タマゴ"
-              : isDeceased
-                ? `${displayName} は おやすみちゅう`
-                : `${displayName} を なでる`
-          }
-          style={egg || isDeceased ? { cursor: "default" } : undefined}
+          onClick={egg ? undefined : handlePet}
+          role={egg ? undefined : "button"}
+          aria-label={egg ? "タマゴ" : `${displayName} を なでる`}
+          style={egg ? { cursor: "default" } : undefined}
         >
           <MonsterSprite monster={monster} size={160} animated />
         </div>
@@ -269,7 +225,7 @@ export function HomeScreen() {
             <span>べんきょう を はじめる</span>
           </Link>
         </>
-      ) : !isDeceased ? (
+      ) : (
         <>
           <section className="card">
             <h2 style={{ margin: 0 }}>{displayName}</h2>
@@ -365,7 +321,7 @@ export function HomeScreen() {
             </div>
           </section>
         </>
-      ) : null}
+      )}
 
       {/* 命名モーダル: 孵化済み・名前空のときに自動表示。閉じられない（必須）。 */}
       {naming && (
@@ -425,59 +381,6 @@ export function HomeScreen() {
                 </button>
               </>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* お別れモーダル（deceased 初回検知時に 1 度だけ） */}
-      {isDeceased && showFarewell && (
-        <div
-          className="modal-mask"
-          onClick={() => setShowFarewell(false)}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <EmojiIcon emoji="🌸" size={72} alt="" />
-            <h2>{displayName} と おわかれ</h2>
-            <p className="muted" style={{ marginBottom: 16 }}>
-              いっしょに がんばった じかんを ありがとう。
-              <br />
-              {displayName} は ずっと ずかんに のこるよ。
-            </p>
-            <button
-              className="btn btn--block btn--success"
-              onClick={() => setShowFarewell(false)}
-            >
-              ありがとう
-            </button>
-          </div>
-        </div>
-      )}
-
-      {confirmRebirth && (
-        <div className="modal-mask" onClick={() => setConfirmRebirth(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <EmojiIcon emoji="🥚" size={64} alt="" />
-            <h2>あたらしい タマゴで はじめる？</h2>
-            <p className="muted">
-              {displayName} は ずかんに のこるよ。
-            </p>
-            <div className="row" style={{ marginTop: 16, gap: 10 }}>
-              <button
-                className="btn btn--ghost btn--block"
-                onClick={() => setConfirmRebirth(false)}
-              >
-                やめる
-              </button>
-              <button
-                className="btn btn--block btn--success"
-                onClick={() => {
-                  setConfirmRebirth(false);
-                  void rebirth();
-                }}
-              >
-                はじめる
-              </button>
-            </div>
           </div>
         </div>
       )}

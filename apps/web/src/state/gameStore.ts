@@ -6,6 +6,7 @@ import {
   gainExp,
   hatch,
   isEgg,
+  isHatched,
   needsNaming,
   pet as petMonster,
   rename,
@@ -106,7 +107,6 @@ interface GameState {
     coins: number;
     exp: number;
     leveledUp: boolean;
-    wasDeceased: boolean;
     /** この学習で卵が孵化したか（命名フローへ誘導するため） */
     didHatch: boolean;
   }>;
@@ -126,9 +126,9 @@ interface GameState {
   /** 「ふりだしに戻る」: 全データをまっさらにする (開発用・保護者画面用) */
   hardReset: () => Promise<void>;
   /**
-   * 「新しいタマゴで再スタート」: deceased からの再生。
-   * Wallet / Inventory / StudySession 履歴は保持。Monster だけ初期化する。
-   * docs/04-domain-model.md 4.4 節「死亡からの再スタート」と一致。
+   * 「新しいタマゴで再スタート」。孵化済みの子は図鑑（おもいで）に残してから、
+   * Monster だけ初期化する。Wallet / Inventory / StudySession 履歴は保持。
+   * docs/04-domain-model.md 4.4 節「新しいタマゴで再スタート」と一致。
    */
   rebirth: () => Promise<void>;
   /** 管理者モード: コイン残高を直接設定する */
@@ -165,14 +165,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       const { monster, wallet, inventory, room, loginBonus } =
         await bootstrapIfEmpty();
       const ticked = tickMonster(monster, Date.now());
-      // 起動時に deceased を検知したら、お墓に転記する（未記録なら）。
-      const finalMonster = await commitDeathIfNeeded(ticked);
-      if (finalMonster !== monster) await monsterRepo.save(finalMonster);
+      if (ticked !== monster) await monsterRepo.save(ticked);
       const recent = await studySessionRepo.recent(20);
       const graves = await graveyardRepo.list();
       set({
         ready: true,
-        monster: finalMonster,
+        monster: ticked,
         wallet,
         inventory,
         room,
@@ -193,21 +191,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!m) return;
     const ticked = tickMonster(m, Date.now());
     if (ticked === m) return;
-    const committed = await commitDeathIfNeeded(ticked);
-    await monsterRepo.save(committed);
-    set({
-      monster: committed,
-      graves:
-        committed.lifeState === "deceased" && m.lifeState !== "deceased"
-          ? await graveyardRepo.list()
-          : get().graves,
-    });
+    await monsterRepo.save(ticked);
+    set({ monster: ticked });
   },
 
   async petMonster() {
     const m = get().monster;
     if (!m) return;
-    if (m.lifeState === "deceased") return; // 触れない
     const next = petMonster(m);
     if (next === m) return;
     await monsterRepo.save(next);
@@ -217,8 +207,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   async feedWith(foodId) {
     const { monster, inventory } = get();
     if (!monster) return false;
-    // 死んだモンスターには餌をあげても効果がない。在庫だけ消費する誤動作を防ぐ。
-    if (monster.lifeState === "deceased") return false;
     if (countOf(inventory, foodId, "food") <= 0) return false;
     const food = findFood(foodId);
     if (!food) return false;
@@ -365,18 +353,11 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   async applyReward(session) {
     const { wallet, monster } = get();
-    // 死んだモンスターはコインも経験値ももらえない (設計の死亡仕様に揃える)。
-    // 学習履歴は記録する (保護者画面で見えるよう)。
-    const isDeceased = !!monster && monster.lifeState === "deceased";
-    const effectiveSession: StudySession = isDeceased
-      ? { ...session, rewards: { coins: 0, exp: 0 } }
-      : session;
-
-    const nextWallet = earn(wallet, effectiveSession.rewards.coins);
+    const nextWallet = earn(wallet, session.rewards.coins);
     let leveledUp = false;
     let didHatch = false;
     let nextMonster = monster;
-    if (monster && !isDeceased) {
+    if (monster) {
       // 卵 → 孵化（最初の学習で baby になる。命名は孵化後に行う）
       let m = monster;
       if (isEgg(m)) {
@@ -384,7 +365,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         didHatch = true;
       }
       const before = m.level;
-      m = gainExp(m, effectiveSession.rewards.exp);
+      m = gainExp(m, session.rewards.exp);
       leveledUp = m.level > before;
       m = { ...m, totalSessions: (m.totalSessions ?? 0) + 1 };
       nextMonster = m;
@@ -398,7 +379,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       async () => {
         if (nextMonster) await monsterRepo.save(nextMonster);
         await walletRepo.save(nextWallet);
-        await studySessionRepo.append(effectiveSession);
+        await studySessionRepo.append(session);
       }
     );
     const recent = await studySessionRepo.recent(20);
@@ -408,10 +389,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       recentSessions: recent,
     });
     return {
-      coins: effectiveSession.rewards.coins,
-      exp: effectiveSession.rewards.exp,
+      coins: session.rewards.coins,
+      exp: session.rewards.exp,
       leveledUp,
-      wasDeceased: isDeceased,
       didHatch,
     };
   },
@@ -476,9 +456,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   async rebirth() {
     if (rebirthInflight) return rebirthInflight;
     rebirthInflight = (async () => {
-      // deceased の Monster はお墓に転記してからクリア。
+      // 孵化済みの Monster は図鑑（おもいで）に転記してからクリア。
       const current = get().monster;
-      if (current && current.lifeState === "deceased") {
+      if (current && isHatched(current)) {
         const grave = buildGraveRecord(current);
         await graveyardRepo.add(grave);
       }
@@ -546,7 +526,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           100
         ),
       },
-      // deceased から生き返らせた場合は dying タイマーをリセットしておく。
+      // dying 以外へ書き換えたら危篤の記録時刻はリセットしておく。
       dyingSince:
         patch.lifeState && patch.lifeState !== "dying" ? null : m.dyingSince,
     };
@@ -573,18 +553,6 @@ function clampInt(v: number, min: number, max: number): number {
   const r = Math.round(v);
   if (Number.isNaN(r)) return min;
   return Math.max(min, Math.min(max, r));
-}
-
-/**
- * tick / init で deceased を検知したら、まだお墓に記録していなければ追加する。
- * rebirth() を待たず、起動時点で図鑑に残す（ユーザが rebirth せず放置しても残る）。
- */
-async function commitDeathIfNeeded(m: Monster): Promise<Monster> {
-  if (m.lifeState !== "deceased") return m;
-  const existing = await db.graveyard.get(m.id);
-  if (existing) return m;
-  await graveyardRepo.add(buildGraveRecord(m));
-  return m;
 }
 
 export { FOODS, COSMETICS, INTERIORS };

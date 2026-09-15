@@ -1,6 +1,6 @@
 import { db } from "./dexie";
 import type { Monster } from "../../domain/monster";
-import { createInitialMonster } from "../../domain/monster";
+import { createInitialMonster, reviveLegacyState } from "../../domain/monster";
 import type { Wallet } from "../../domain/wallet";
 import { createInitialWallet } from "../../domain/wallet";
 import type {
@@ -34,13 +34,19 @@ export const monsterRepo = {
     return db.transaction("rw", db.monster, async () => {
       const rows = await db.monster.toArray();
       if (rows.length === 0) return null;
-      if (rows.length === 1) return rows[0]!;
-      // 最も lastTickAt が新しいものを採用し、残りは削除する。
-      rows.sort((a, b) => lastTickMs(b) - lastTickMs(a));
-      const keep = rows[0]!;
-      const remove = rows.slice(1).map((r) => r.id);
-      await db.monster.bulkDelete(remove);
-      return keep;
+      let keep = rows[0]!;
+      if (rows.length > 1) {
+        // 最も lastTickAt が新しいものを採用し、残りは削除する。
+        rows.sort((a, b) => lastTickMs(b) - lastTickMs(a));
+        keep = rows[0]!;
+        const remove = rows.slice(1).map((r) => r.id);
+        await db.monster.bulkDelete(remove);
+      }
+      // 旧バージョン（死亡あり）で deceased になった子はここで生還させ、
+      // 救済後の状態をそのまま保存し直す。
+      const revived = reviveLegacyState(keep);
+      if (revived !== keep) await db.monster.put(revived);
+      return revived;
     });
   },
   async save(m: Monster): Promise<void> {

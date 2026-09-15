@@ -250,7 +250,6 @@ export function StudyPlayScreen() {
       coins: number;
       exp: number;
       leveledUp: boolean;
-      wasDeceased: boolean;
       didHatch: boolean;
     };
     try {

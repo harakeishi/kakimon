@@ -76,9 +76,6 @@ export function MonsterCheerOverlay({
     []
   );
 
-  // 死んでいるモンスターは応援しない（お墓の演出と矛盾するため非表示）。
-  if (monster.lifeState === "deceased") return null;
-
   const artCls = bubble
     ? `cheer-overlay__art ${
         bubble.correct

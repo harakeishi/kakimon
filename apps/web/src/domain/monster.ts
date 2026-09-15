@@ -1,6 +1,24 @@
 // docs/04-domain-model.md と同期。仮置きステータスとロジック。
 
-export type LifeState = "healthy" | "weak" | "sick" | "dying" | "deceased";
+// モンスターは死なない（deceased は廃止）。悪化の最下段は "dying"（危篤）で、
+// 世話をすれば必ずそこから戻ってこられる。docs/04-domain-model.md 4.4 を参照。
+export type LifeState = "healthy" | "weak" | "sick" | "dying";
+
+/** HP の下限。ここで止まるので HP 切れで死ぬことはない。 */
+export const MIN_HP = 1;
+
+/**
+ * 「ちゃんとごはんを食べている」と見なす空腹ライン。
+ * これを下回っていれば sick / dying でも HP は回復に転じる。
+ */
+const NOURISHED_HUNGER = 60;
+
+/**
+ * 危篤の子にごはんをあげたときに戻る HP の割合（maxHp 比）。
+ * HP 1 のまま返すと数時間で危篤に戻り「世話しても変わらない」体験になるため、
+ * ここで一度しっかり持ち直させる。
+ */
+const RESCUE_HP_RATIO = 0.25;
 
 export type MonsterStage = "egg" | "baby" | "child" | "teen" | "adult";
 
@@ -38,11 +56,11 @@ export interface Monster {
   condition: MonsterCondition;
   lifeState: LifeState;
   lastTickAt: string;
-  /** dying に入った時刻。null なら未到達 */
+  /** dying に入った時刻（記録用。ここから死に向かうタイマーは無い）。null なら未到達 */
   dyingSince: string | null;
   equipped: MonsterEquipped;
   favoriteFoodIds: string[];
-  /** 累計学習セッション数（お墓に刻む用） */
+  /** 累計学習セッション数（図鑑のおもいでに刻む用） */
   totalSessions: number;
 }
 
@@ -80,6 +98,31 @@ export function createInitialMonster(): Monster {
     equipped: {},
     favoriteFoodIds: [],
     totalSessions: 0,
+  };
+}
+
+const LIFE_STATES: readonly string[] = ["healthy", "weak", "sick", "dying"];
+
+/**
+ * 旧バージョン（死亡あり）のセーブデータを救済する。
+ * 保存済みの lifeState が既知の値でない（= 旧 "deceased" 等）場合は、
+ * 危篤から生還した扱いで sick へ戻す。放置ぶんの減衰を後から二重に
+ * かけないよう lastTickAt も目覚めた時刻に更新する。
+ */
+export function reviveLegacyState(
+  m: Monster,
+  nowMs: number = Date.now()
+): Monster {
+  if (LIFE_STATES.includes(m.lifeState)) return m;
+  return {
+    ...m,
+    lifeState: "sick",
+    stats: {
+      ...m.stats,
+      hp: Math.max(MIN_HP, Math.ceil(m.stats.maxHp * RESCUE_HP_RATIO)),
+    },
+    dyingSince: null,
+    lastTickAt: new Date(nowMs).toISOString(),
   };
 }
 
@@ -136,8 +179,8 @@ function cryptoRandomId(): string {
 
 const ONE_HOUR = 60 * 60 * 1000;
 
-// チャンクサイズ。長期放置でも状態遷移と 48h dying タイマーが正しく
-// 進むよう、1 時間刻みでステップ実行する。30 日不在で 720 回ループ程度。
+// チャンクサイズ。長期放置でも状態遷移が段階を飛ばさずに進むよう、
+// 1 時間刻みでステップ実行する。30 日不在で 720 回ループ程度。
 const TICK_CHUNK_MS = ONE_HOUR;
 
 /**
@@ -145,14 +188,14 @@ const TICK_CHUNK_MS = ONE_HOUR;
  * - hunger: 24 時間で 0 → 100
  * - cleanliness: 72 時間で 100 → 0
  * - mood: 168 時間 (1 週間) で 50 → 20 までゆっくり低下 (下限 20)
- * - hp: sick / dying 中、24 時間で maxHp の 25% 減
- * - dying に入って 48 時間で deceased
+ * - hp: sick / dying 中、24 時間で maxHp の 25% 減。ただし MIN_HP で止まる
+ * - hp: sick / dying でも満腹なら同じ速さで回復する（世話をすれば必ず戻る）
  *
+ * 死亡状態は無いので、悪化は "dying" で止まる。
  * 内部で 1 時間刻みのチャンクに分割して評価する。これにより
- * 「数日放置 → 1 度の tick で sick→dying→deceased まで進む」が正しく動く。
+ * 「数日放置 → 1 度の tick で weak→sick→dying まで進む」が正しく動く。
  */
 export function tickMonster(m: Monster, nowMs: number): Monster {
-  if (m.lifeState === "deceased") return m;
   // 卵期は世話を必要としない。lastTickAt だけ更新して状態は据え置き。
   if (m.stage === "egg") {
     return { ...m, lastTickAt: new Date(nowMs).toISOString() };
@@ -165,7 +208,7 @@ export function tickMonster(m: Monster, nowMs: number): Monster {
 
   let current = m;
   let cursor = lastMs;
-  while (cursor < nowMs && current.lifeState !== "deceased") {
+  while (cursor < nowMs) {
     const step = Math.min(TICK_CHUNK_MS, nowMs - cursor);
     cursor += step;
     current = tickStep(current, cursor, step);
@@ -198,24 +241,23 @@ function tickStep(m: Monster, atMs: number, dtMs: number): Monster {
     if (cleanliness <= 0) lifeState = "sick";
   }
   if (lifeState === "sick" || lifeState === "dying") {
-    const drain = ((m.stats.maxHp * 0.25) / 24) * dtH;
-    hp = Math.max(0, hp - drain);
+    const rate = ((m.stats.maxHp * 0.25) / 24) * dtH;
+    // ごはんが足りていれば HP は回復に向かう。足りていなければ減るが、
+    // MIN_HP が下限なので 0 にはならない（＝死なない）。
+    hp =
+      hunger < NOURISHED_HUNGER
+        ? Math.min(m.stats.maxHp, hp + rate)
+        : Math.max(MIN_HP, hp - rate);
   }
-  if (lifeState === "sick" && hp <= 0) {
+  if (lifeState === "sick" && hp <= MIN_HP) {
     lifeState = "dying";
     dyingSince = new Date(atMs).toISOString();
   }
-  if (lifeState === "dying" && dyingSince) {
-    const dyingStartedRaw = Date.parse(dyingSince);
-    if (Number.isFinite(dyingStartedRaw)) {
-      const dyingMs = atMs - dyingStartedRaw;
-      if (dyingMs >= 48 * ONE_HOUR) {
-        lifeState = "deceased";
-      }
-    } else {
-      // 壊れた dyingSince はリセットして再記録
-      dyingSince = new Date(atMs).toISOString();
-    }
+  // 危篤の先（死亡）は無い。HP が戻ったら dying → sick に戻す。
+  // 他の遷移は悪化方向のみだが、ここは「放置し続けても死なない」ための出口。
+  if (lifeState === "dying" && hp > MIN_HP) {
+    lifeState = "sick";
+    dyingSince = null;
   }
 
   return {
@@ -241,18 +283,15 @@ export function feed(
   m: Monster,
   effects: { hungerDelta: number; moodDelta: number; hpDelta?: number }
 ): Monster {
-  if (m.lifeState === "deceased") return m;
   const hunger = clamp(m.condition.hunger + effects.hungerDelta);
   const mood = clamp(m.condition.mood + effects.moodDelta);
-  const hp = clamp(
-    m.stats.hp + (effects.hpDelta ?? 0),
-    0,
-    m.stats.maxHp
-  );
-  // hp が戻ったら dying → sick に降格、sick も healthy 寄りに改善できる
+  let hp = clamp(m.stats.hp + (effects.hpDelta ?? 0), MIN_HP, m.stats.maxHp);
+  // おなかが満たされたら dying → sick に降格、sick も healthy 寄りに改善できる。
+  // その後の HP は tick で回復していく（満腹なら回復に転じる）。
   let lifeState: LifeState = m.lifeState;
   let dyingSince = m.dyingSince;
-  if (lifeState === "dying" && hp > 0) {
+  if (lifeState === "dying" && (hunger < NOURISHED_HUNGER || hp > MIN_HP)) {
+    hp = Math.max(hp, Math.ceil(m.stats.maxHp * RESCUE_HP_RATIO));
     lifeState = "sick";
     dyingSince = null;
   }
@@ -277,7 +316,6 @@ export function feed(
 }
 
 export function pet(m: Monster): Monster {
-  if (m.lifeState === "deceased") return m;
   const mood = clamp(m.condition.mood + 3);
   return { ...m, condition: { ...m.condition, mood } };
 }
@@ -307,7 +345,6 @@ export function unequip(m: Monster, slot: EquipSlot): Monster {
 // ─────────────────────────────────────────────────────────────────
 
 export function gainExp(m: Monster, exp: number): Monster {
-  if (m.lifeState === "deceased") return m;
   let level = m.level;
   let cur = m.exp + exp;
   let next = m.expToNext;

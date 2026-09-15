@@ -1,5 +1,7 @@
-// 図鑑（お墓）に残す死亡モンスターの記録。
-// docs/04-domain-model.md 4.4「死亡からの再スタート」に対応。
+// 図鑑（おもいで）に残す、これまでのモンスターの記録。
+// docs/04-domain-model.md 4.4「新しいタマゴで再スタート」に対応。
+// モンスターは死なないので、ここに載るのはユーザが明示的に
+// 「新しいタマゴで はじめる」を選んだ子だけ。
 // 名前・誕生日・到達ステージ・累計学習セッション数を保持する。
 
 import type { Monster, MonsterStage } from "./monster";
@@ -9,7 +11,7 @@ export interface GraveRecord {
   name: string;
   species: string;
   bornAt: string;
-  diedAt: string;        // ISO
+  diedAt: string;        // ISO（図鑑に移した日時。歴史的な名前のまま）
   reachedStage: MonsterStage;
   reachedLevel: number;
   totalSessions: number;
