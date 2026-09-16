@@ -20,7 +20,7 @@ export function App() {
   }, [init]);
 
   // tick の自動駆動：定期 + 復帰時。
-  // - 60 秒ごとに最新化（dying/deceased の検知をリアクティブに）
+  // - 60 秒ごとに最新化（weak/sick/dying の検知をリアクティブに）
   // - 別タブから戻ったとき・モバイルから復帰したときも即座に評価
   useEffect(() => {
     if (!ready) return;

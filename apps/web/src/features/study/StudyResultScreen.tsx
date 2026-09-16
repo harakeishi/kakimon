@@ -8,7 +8,6 @@ interface ResultState {
     coins: number;
     exp: number;
     leveledUp: boolean;
-    wasDeceased: boolean;
     didHatch: boolean;
   };
   score: number;
@@ -43,13 +42,7 @@ export function StudyResultScreen() {
     <>
       <section className="card center">
         <EmojiIcon
-          emoji={
-            state.reward.wasDeceased
-              ? "🌸"
-              : state.reward.didHatch
-                ? "🐣"
-                : "🎉"
-          }
+          emoji={state.reward.didHatch ? "🐣" : "🎉"}
           size={72}
           alt=""
         />
@@ -74,43 +67,30 @@ export function StudyResultScreen() {
           <div className="coin-pop">{scorePercent}%</div>
         </div>
 
-        {state.reward.wasDeceased ? (
-          <div className="card" style={{ marginTop: 12 }}>
-            <div style={{ fontSize: "1.1rem" }}>
-              モンスターは おやすみちゅう
-            </div>
-            <p className="muted" style={{ margin: "8px 0 0" }}>
-              いまは ごほうびを もらえないけど、
-              <br />
-              べんきょうの きろくは ちゃんと のこっているよ。
-            </p>
+        <div className="card" style={{ marginTop: 12 }}>
+          <div style={{ fontSize: "1.1rem" }}>もらえたよ</div>
+          <div
+            className="coin-pop row"
+            style={{ justifyContent: "center", gap: 6 }}
+          >
+            <EmojiIcon emoji="💰" size={28} alt="" />
+            <span>+{state.reward.coins} コイン</span>
           </div>
-        ) : (
-          <div className="card" style={{ marginTop: 12 }}>
-            <div style={{ fontSize: "1.1rem" }}>もらえたよ</div>
+          <div className="muted">けいけんち +{state.reward.exp}</div>
+          {state.reward.leveledUp && (
             <div
-              className="coin-pop row"
-              style={{ justifyContent: "center", gap: 6 }}
+              style={{
+                marginTop: 10,
+                color: "var(--good)",
+                fontWeight: 700,
+              }}
+              className="row"
             >
-              <EmojiIcon emoji="💰" size={28} alt="" />
-              <span>+{state.reward.coins} コイン</span>
+              <EmojiIcon emoji="⭐" size={20} alt="" />
+              <span style={{ marginLeft: 4 }}>レベルアップ！</span>
             </div>
-            <div className="muted">けいけんち +{state.reward.exp}</div>
-            {state.reward.leveledUp && (
-              <div
-                style={{
-                  marginTop: 10,
-                  color: "var(--good)",
-                  fontWeight: 700,
-                }}
-                className="row"
-              >
-                <EmojiIcon emoji="⭐" size={20} alt="" />
-                <span style={{ marginLeft: 4 }}>レベルアップ！</span>
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </section>
 
       <button

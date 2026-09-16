@@ -83,17 +83,6 @@ export function MonsterSprite({
   className,
   animated = false,
 }: MonsterSpriteProps) {
-  if (monster.lifeState === "deceased") {
-    return (
-      <EmojiIcon
-        emoji="🌸"
-        size={size}
-        alt={`${monster.name || "モンスター"} は おやすみちゅう`}
-        className={className}
-        style={{ opacity: 0.7 }}
-      />
-    );
-  }
   const cls = [
     className,
     animated && monster.stage === "egg" ? "sprite--egg-wiggle" : null,
