@@ -18,8 +18,10 @@ function pickVoice(): SpeechSynthesisVoice | null {
       ja.find((v) => /kyoko|o-ren|hattori|日本語|google 日本語/i.test(v.name)) ??
       ja[0] ??
       null;
-    // 音声一覧が非同期で後から揃う端末があるので、空のときはキャッシュしない。
-    if (voices.length > 0) cachedVoice = preferred;
+    // 音声一覧が非同期で後から揃う端末がある（voiceschanged）。日本語音声が
+    // 見つかったときだけキャッシュし、見つからないうちは毎回引き直す
+    // （getVoices は軽い）。
+    if (preferred) cachedVoice = preferred;
     return preferred;
   } catch {
     return null;

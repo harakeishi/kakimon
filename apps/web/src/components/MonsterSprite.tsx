@@ -62,6 +62,9 @@ export function MonsterSprite({
     width: size,
     height: size,
     lineHeight: 0,
+    // behind レイヤを z-index:-1 にしても、このラッパの外（ステージ背景など）
+    // より下に潜らないよう、ここでスタッキングコンテキストを作る。
+    isolation: "isolate",
   };
 
   const placed = layers.map(({ slot, icon, wear }) => ({
@@ -70,11 +73,15 @@ export function MonsterSprite({
     ...placeWearable(monster.stage as WearableStage, size, icon, wear),
   }));
   const renderLayer = (l: (typeof placed)[number]) => {
+    // ベース（モンスター）の img は position を持たない通常フローの要素なので、
+    // DOM 順で前に置いただけでは absolute のレイヤが上に描かれてしまう。
+    // 背中のアイテムは z-index:-1 で確実にモンスターの後ろへ回す。
     const style: CSSProperties = {
       position: "absolute",
       left: l.left,
       top: l.top,
       pointerEvents: "none",
+      zIndex: l.behind ? -1 : undefined,
     };
     return (
       <span key={l.slot} style={style} aria-hidden>

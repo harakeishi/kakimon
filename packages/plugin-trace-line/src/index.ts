@@ -311,7 +311,8 @@ function startSession(
         hintAnim = null;
         // お手本のあとは出発点に戻す。
         later(() => {
-          if (!locked) placeImage(chickImg, samples[0]!, 14);
+          // お手本の直後に なぞり始めていたら、指の位置を上書きしない。
+          if (!locked && !drawing) placeImage(chickImg, samples[0]!, 14);
         }, 500);
       }
     };
@@ -406,7 +407,7 @@ function startSession(
     renderTrail();
     // ゴールに触れたら、そこで判定する（指を離すのを待たない）。
     if (dist(p, samples[samples.length - 1]!) <= GOAL_RADIUS && coverage() >= 0.45) {
-      finish(true);
+      finish();
     }
   }
 
@@ -423,10 +424,10 @@ function startSession(
     const reached = dist(p, samples[samples.length - 1]!) <= GOAL_RADIUS;
     const cov = coverage();
     if (reached && cov >= 0.45) {
-      finish(true);
+      finish();
     } else if (cov >= 0.85) {
       // 道はほぼ通ったがゴールの手前で離した: 十分なので ついたことにする。
-      finish(true);
+      finish();
     } else {
       // 途中で離した。続きから なぞれるので、やさしく促すだけ。
       retries += 1;
@@ -444,7 +445,7 @@ function startSession(
     }
   }
 
-  function finish(success: boolean) {
+  function finish() {
     if (locked) return;
     locked = true;
     drawing = false;
@@ -467,7 +468,7 @@ function startSession(
     say(`やったー！ ${goal.name}を たべた！`);
     const outcome: QuestionOutcome = {
       questionId: `${questions[index]!.key}@${index}`,
-      correct: success && retries === 0,
+      correct: retries === 0,
       score,
       elapsedMs: Date.now() - questionStartedAt,
       meta: { coverage: cov, retries, strokes: strokes.length },

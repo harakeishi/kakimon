@@ -339,7 +339,7 @@ export const COSMETICS: readonly EquipmentItem[] = [
     icon: "🎒",
     price: 40,
     slot: "accessory",
-    wear: { zone: "back", scale: 0.55, dx: -0.35, dy: 0.05 },
+    wear: { zone: "back", scale: 0.6, dx: -0.35, dy: -0.15 },
   },
   {
     id: "eq-wings",
@@ -348,7 +348,7 @@ export const COSMETICS: readonly EquipmentItem[] = [
     icon: "🪽",
     price: 120,
     slot: "accessory",
-    wear: { zone: "back", scale: 0.65, dx: -0.55, dy: -0.1 },
+    wear: { zone: "back", scale: 0.9, dx: -0.4, dy: -0.45 },
   },
 
   // ── ふく ────────────────────────────────────────────────

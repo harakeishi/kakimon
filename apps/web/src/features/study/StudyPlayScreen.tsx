@@ -12,18 +12,9 @@ import {
   MonsterCheerOverlay,
   type CheerReaction,
 } from "../../components/MonsterCheerOverlay";
-import { EmojiIcon } from "../../components/EmojiIcon";
+import { PluginIcon } from "../../components/PluginIcon";
 import { loadSoundEnabled, saveSoundEnabled } from "../../infra/sound";
 
-/** manifest.icon（絵文字 or 短い文字）を表示する。 */
-function PluginIcon({ icon, size }: { icon: string; size: number }) {
-  const cp = icon.codePointAt(0) ?? 0;
-  return cp > 0x2000 ? (
-    <EmojiIcon emoji={icon} size={size} alt="" />
-  ) : (
-    <span aria-hidden>{icon}</span>
-  );
-}
 
 /**
  * 進捗を「ほしの つぶ」で見せる。プラグインの reportProgress の label は

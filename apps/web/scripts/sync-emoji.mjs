@@ -4,14 +4,19 @@
 //
 // 同期対象を増やすときは src/assets/emoji-codepoints.json を更新する。
 
-import { copyFile, mkdir, realpath, rm } from "node:fs/promises";
+import { copyFile, mkdir, readFile, realpath, rm } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import codepointManifest from "../src/assets/emoji-codepoints.json" with { type: "json" };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const webRoot = join(__dirname, "..");
 const outDir = join(webRoot, "public", "emoji");
+
+// JSON の import 属性（with { type: "json" }）は Node 20.10 以降でしか使えないので、
+// engines (>=20) の範囲で動くよう読み込んでパースする。
+const codepointManifest = JSON.parse(
+  await readFile(join(webRoot, "src", "assets", "emoji-codepoints.json"), "utf8")
+);
 
 // アプリで実際に表示する絵文字のコードポイント (大文字16進)。
 // 一覧は src/assets/emoji-codepoints.json に集約している（EmojiIcon と共有）。

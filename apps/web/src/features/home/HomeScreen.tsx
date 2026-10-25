@@ -12,6 +12,7 @@ import { PetReactionFx } from "../../components/PetReactionFx";
 import { pickPetReaction, type PetReaction } from "../../domain/petReactions";
 import { NameMonsterModal } from "./NameMonsterModal";
 import { kidsPlugins } from "../../plugin-host/registry";
+import { PluginIcon } from "../../components/PluginIcon";
 
 /**
  * 「きょうの あそび」: 3 歳向けプラグインを日替わりで 1 つ選ぶ。
@@ -26,14 +27,6 @@ function todaysPlugin() {
   return kidsPlugins[dayOfYear % kidsPlugins.length] ?? null;
 }
 
-function PluginIcon({ icon, size }: { icon: string; size: number }) {
-  const cp = icon.codePointAt(0) ?? 0;
-  return cp > 0x2000 ? (
-    <EmojiIcon emoji={icon} size={size} alt="" />
-  ) : (
-    <span aria-hidden>{icon}</span>
-  );
-}
 
 const LIFE_STATE_LABELS: Record<Monster["lifeState"], string> = {
   healthy: "げんき",

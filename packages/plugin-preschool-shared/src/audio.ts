@@ -44,7 +44,11 @@ export function playCorrect(): void {
   const ac = audioCtx();
   if (!ac) return;
   try {
-    if (ac.state === "suspended") void ac.resume();
+    if (ac.state === "suspended") {
+      // ユーザ操作の外（結果画面のマウント時など）では resume が拒否される端末が
+      // ある。その場合は鳴らないだけなので、拒否は握りつぶす。
+      ac.resume().catch(() => {});
+    }
     const t = ac.currentTime;
     tone(ac, 880, t, 0.12, "sine", 0.25);
     tone(ac, 1318, t + 0.1, 0.22, "sine", 0.25);
@@ -58,7 +62,11 @@ export function playWrong(): void {
   const ac = audioCtx();
   if (!ac) return;
   try {
-    if (ac.state === "suspended") void ac.resume();
+    if (ac.state === "suspended") {
+      // ユーザ操作の外（結果画面のマウント時など）では resume が拒否される端末が
+      // ある。その場合は鳴らないだけなので、拒否は握りつぶす。
+      ac.resume().catch(() => {});
+    }
     const t = ac.currentTime;
     tone(ac, 220, t, 0.18, "triangle", 0.18);
   } catch {
@@ -71,7 +79,11 @@ export function playFanfare(): void {
   const ac = audioCtx();
   if (!ac) return;
   try {
-    if (ac.state === "suspended") void ac.resume();
+    if (ac.state === "suspended") {
+      // ユーザ操作の外（結果画面のマウント時など）では resume が拒否される端末が
+      // ある。その場合は鳴らないだけなので、拒否は握りつぶす。
+      ac.resume().catch(() => {});
+    }
     const t = ac.currentTime;
     tone(ac, 659, t, 0.15, "sine", 0.22);
     tone(ac, 784, t + 0.14, 0.15, "sine", 0.22);

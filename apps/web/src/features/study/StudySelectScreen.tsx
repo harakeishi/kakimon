@@ -1,21 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import type { ContentPlugin } from "@kakimon/plugin-api";
 import { plugins } from "../../plugin-host/registry";
-import { EmojiIcon } from "../../components/EmojiIcon";
-
-/**
- * manifest.icon は絵文字か短い文字（"あ"・"1" など）。絵文字なら OpenMoji の
- * 画像、文字ならそのまま大きく出す。
- */
-function PluginIcon({ icon, size }: { icon: string; size: number }) {
-  const cp = icon.codePointAt(0) ?? 0;
-  const isEmoji = cp > 0x2000;
-  return isEmoji ? (
-    <EmojiIcon emoji={icon} size={size} alt="" />
-  ) : (
-    <span aria-hidden>{icon}</span>
-  );
-}
+import { PluginIcon } from "../../components/PluginIcon";
 
 function ageLabel(p: ContentPlugin): string {
   const min = p.manifest.ageHint?.min;
@@ -27,6 +13,13 @@ export function StudySelectScreen() {
   // 「3さいから」= kidsMode。字が読めなくても選べるよう、絵だけの大きなカード。
   const kids = plugins.filter((p) => p.manifest.kidsMode);
   const older = plugins.filter((p) => !p.manifest.kidsMode);
+  // 見出しの年齢は、その枠でいちばん低い ageHint から出す（カードの表示と
+  // 食い違わないように）。ageHint が無いプラグインだけなら数字を出さない。
+  const olderMin = older.reduce<number | null>((min, p) => {
+    const m = p.manifest.ageHint?.min;
+    if (m === undefined) return min;
+    return min === null ? m : Math.min(min, m);
+  }, null);
 
   return (
     <>
@@ -64,7 +57,9 @@ export function StudySelectScreen() {
       {older.length > 0 && (
         <>
           <div className="section-title">
-            <span className="age-badge age-badge--older">4さいから</span>
+            <span className="age-badge age-badge--older">
+              {olderMin === null ? "おおきい こ" : `${olderMin}さいから`}
+            </span>
             <span>かいたり こたえたり</span>
           </div>
           <div className="list">

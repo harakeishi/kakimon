@@ -64,7 +64,7 @@ export const CONTENT_BBOX: Record<string, ContentBox> = {
   "2B50": { left: 0.115, right: 0.885, top: 0.132, bottom: 0.865, cx: 0.5, cy: 0.498 }, // ⭐
   "1F48D": { left: 0.229, right: 0.816, top: 0.149, bottom: 0.861, cx: 0.523, cy: 0.505 }, // 💍
   "1F392": { left: 0.208, right: 0.792, top: 0.042, bottom: 0.917, cx: 0.5, cy: 0.479 }, // 🎒
-  "1FAB6": { left: 0.198, right: 0.781, top: 0.201, bottom: 0.816, cx: 0.49, cy: 0.509 }, // 🪽
+  "1FABD": { left: 0.219, right: 0.781, top: 0.149, bottom: 0.851, cx: 0.5, cy: 0.5 }, // 🪽
   // ふく
   "1F455": { left: 0.097, right: 0.903, top: 0.087, bottom: 0.792, cx: 0.5, cy: 0.439 }, // 👕
   "1F454": { left: 0.125, right: 0.851, top: 0.083, bottom: 0.899, cx: 0.488, cy: 0.491 }, // 👔
@@ -157,7 +157,7 @@ export const STAGE_ANCHORS: Record<WearableStage, StageAnchors> = {
     neck: { x: 0.505, y: 0.5 },
     body: { x: 0.505, y: 0.53 },
     hand: { x: 0.8, y: 0.6 },
-    back: { x: 0.505, y: 0.55 },
+    back: { x: 0.42, y: 0.46 },
     headW: 0.38,
     bodyW: 0.5,
   },
@@ -169,7 +169,7 @@ export const STAGE_ANCHORS: Record<WearableStage, StageAnchors> = {
     neck: { x: 0.28, y: 0.52 },
     body: { x: 0.5, y: 0.53 },
     hand: { x: 0.27, y: 0.68 },
-    back: { x: 0.5, y: 0.55 },
+    back: { x: 0.45, y: 0.47 },
     headW: 0.2,
     bodyW: 0.38,
   },
@@ -181,7 +181,7 @@ export const STAGE_ANCHORS: Record<WearableStage, StageAnchors> = {
     neck: { x: 0.5, y: 0.78 },
     body: { x: 0.5, y: 0.8 },
     hand: { x: 0.87, y: 0.62 },
-    back: { x: 0.5, y: 0.5 },
+    back: { x: 0.35, y: 0.45 },
     headW: 0.5,
     bodyW: 0.42,
   },
@@ -193,7 +193,7 @@ export const STAGE_ANCHORS: Record<WearableStage, StageAnchors> = {
     neck: { x: 0.64, y: 0.45 },
     body: { x: 0.52, y: 0.48 },
     hand: { x: 0.46, y: 0.68 },
-    back: { x: 0.42, y: 0.45 },
+    back: { x: 0.4, y: 0.4 },
     headW: 0.26,
     bodyW: 0.42,
   },

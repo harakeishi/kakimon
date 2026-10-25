@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FOODS,
   FOOD_CATEGORY_LABELS,
   FOOD_CATEGORY_ORDER,
+  foodsByCategory,
 } from "../../domain/catalog/foods";
 import {
   COSMETICS,
@@ -118,7 +118,7 @@ export function ShopScreen() {
             かった ごはんは ホームの「ごはんを あげる」から たべさせられるよ。
           </p>
           {FOOD_CATEGORY_ORDER.map((category) => {
-            const items = FOODS.filter((f) => f.category === category);
+            const items = foodsByCategory(category);
             return (
               <section key={category} style={{ marginTop: 4 }}>
                 <h3 style={{ margin: "8px 4px 6px", color: "var(--text-muted)" }}>
