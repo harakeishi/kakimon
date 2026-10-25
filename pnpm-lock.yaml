@@ -19,9 +19,18 @@ importers:
       '@kakimon/plugin-api':
         specifier: workspace:*
         version: link:../../packages/plugin-api
+      '@kakimon/plugin-preschool':
+        specifier: workspace:*
+        version: link:../../packages/plugin-preschool
+      '@kakimon/plugin-preschool-shared':
+        specifier: workspace:*
+        version: link:../../packages/plugin-preschool-shared
       '@kakimon/plugin-quiz-flag':
         specifier: workspace:*
         version: link:../../packages/plugin-quiz-flag
+      '@kakimon/plugin-trace-line':
+        specifier: workspace:*
+        version: link:../../packages/plugin-trace-line
       '@kakimon/plugin-writing-hiragana':
         specifier: workspace:*
         version: link:../../packages/plugin-writing-hiragana
@@ -75,11 +84,47 @@ importers:
         specifier: 5.6.3
         version: 5.6.3
 
+  packages/plugin-preschool:
+    dependencies:
+      '@kakimon/plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      '@kakimon/plugin-preschool-shared':
+        specifier: workspace:*
+        version: link:../plugin-preschool-shared
+    devDependencies:
+      typescript:
+        specifier: 5.6.3
+        version: 5.6.3
+
+  packages/plugin-preschool-shared:
+    dependencies:
+      '@kakimon/plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+    devDependencies:
+      typescript:
+        specifier: 5.6.3
+        version: 5.6.3
+
   packages/plugin-quiz-flag:
     dependencies:
       '@kakimon/plugin-api':
         specifier: workspace:*
         version: link:../plugin-api
+    devDependencies:
+      typescript:
+        specifier: 5.6.3
+        version: 5.6.3
+
+  packages/plugin-trace-line:
+    dependencies:
+      '@kakimon/plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      '@kakimon/plugin-preschool-shared':
+        specifier: workspace:*
+        version: link:../plugin-preschool-shared
     devDependencies:
       typescript:
         specifier: 5.6.3

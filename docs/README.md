@@ -13,6 +13,7 @@
 | 04 | [domain-model.md](04-domain-model.md) | モンスター・通貨・餌・装備のドメインモデル、IndexedDB スキーマ |
 | 05 | [ui-ux.md](05-ui-ux.md) | 画面一覧、画面遷移、子供向け配慮、アクセシビリティ |
 | 06 | [roadmap.md](06-roadmap.md) | フェーズ分けされたマイルストーン |
+| 07 | [preschool-ux-research.md](07-preschool-ux-research.md) | 3 歳児向け UI/UX の先行事例・ガイドライン調査（05 の 5.9 の根拠） |
 
 ## 読み方
 

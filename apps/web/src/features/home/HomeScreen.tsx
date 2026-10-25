@@ -11,6 +11,22 @@ import { MonsterSprite } from "../../components/MonsterSprite";
 import { PetReactionFx } from "../../components/PetReactionFx";
 import { pickPetReaction, type PetReaction } from "../../domain/petReactions";
 import { NameMonsterModal } from "./NameMonsterModal";
+import { kidsPlugins } from "../../plugin-host/registry";
+import { PluginIcon } from "../../components/PluginIcon";
+
+/**
+ * 「きょうの あそび」: 3 歳向けプラグインを日替わりで 1 つ選ぶ。
+ * ホームから 1 タップでいちばんやさしいコースが始まる（トドさんすうの
+ * 「きょうのぼうけん」のような、短くて迷わない日課の入口）。
+ */
+function todaysPlugin() {
+  if (kidsPlugins.length === 0) return null;
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((now.getTime() - start.getTime()) / 86_400_000);
+  return kidsPlugins[dayOfYear % kidsPlugins.length] ?? null;
+}
+
 
 const LIFE_STATE_LABELS: Record<Monster["lifeState"], string> = {
   healthy: "げんき",
@@ -113,6 +129,16 @@ export function HomeScreen() {
     return { wallpaper, floor, furniture };
   }, [room]);
 
+  // もっている ごはんだけ並べる（カタログが大きいので、全部は出さない）。
+  const ownedFoods = useMemo(
+    () =>
+      FOODS.map((food) => ({
+        food,
+        owned: countOf(inventory, food.id, "food"),
+      })).filter((f) => f.owned > 0),
+    [inventory]
+  );
+
   const careNeeded = useMemo(() => {
     if (!monster) return false;
     if (isEgg(monster)) return false;
@@ -122,6 +148,8 @@ export function HomeScreen() {
       monster.lifeState === "dying"
     );
   }, [monster]);
+
+  const today = useMemo(todaysPlugin, []);
 
   if (!monster) return null;
   const egg = isEgg(monster);
@@ -246,6 +274,27 @@ export function HomeScreen() {
             />
           </section>
 
+          {/* きょうの あそび: 1 タップで始まる 3 歳向けの短い日課 */}
+          {!dying && today && (
+            <Link
+              to={`/study/${encodeURIComponent(today.manifest.id)}?auto=1`}
+              className="today-card"
+              aria-label={`きょうの あそび: ${today.manifest.name}`}
+            >
+              <span className="today-card__icon">
+                <PluginIcon icon={today.manifest.icon} size={48} />
+              </span>
+              <span>
+                <div className="today-card__label">きょうの あそび</div>
+                <div className="today-card__name">{today.manifest.name}</div>
+                <div className="today-card__hint">タッチで すぐ はじまるよ</div>
+              </span>
+              <span className="today-card__go" aria-hidden>
+                ▶
+              </span>
+            </Link>
+          )}
+
           {/* dying のときは「べんきょう」より「おせわ」優先 */}
           <section className={`actions-grid${dying ? "" : " actions-grid--4"}`}>
             {dying ? (
@@ -296,9 +345,13 @@ export function HomeScreen() {
             <p className="muted" style={{ marginTop: 0 }}>
               もちもの から ごはんを えらぼう
             </p>
+            {ownedFoods.length === 0 && (
+              <p className="muted" style={{ margin: "4px 0 0" }}>
+                ごはんが ないよ。ショップで かってこよう！
+              </p>
+            )}
             <div className="list">
-              {FOODS.map((food) => {
-                const owned = countOf(inventory, food.id, "food");
+              {ownedFoods.map(({ food, owned }) => {
                 return (
                   <div className="list-row" key={food.id}>
                     <div className="icon" aria-hidden>

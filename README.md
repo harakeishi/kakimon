@@ -29,6 +29,8 @@
   および [@k1low/kakitori-data](https://www.npmjs.com/package/@k1low/kakitori-data)
   をビルド時にローカルへ同期して利用する (`scripts/sync-kakitori-data.mjs` /
   `scripts/sync-emoji.mjs`)。
+- **読み上げ・効果音**: ブラウザ標準の Web Speech API（`speechSynthesis`）と
+  Web Audio API で合成しており、音声・音源ファイルは同梱していない。
 - **国のシルエット**: [world-atlas](https://github.com/topojson/world-atlas)
   (Natural Earth 50m, public domain) から生成した SVG path を
   `packages/plugin-quiz-flag/src/countryShapes.ts` に埋め込んでいる。

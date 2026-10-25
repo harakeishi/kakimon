@@ -272,6 +272,8 @@ h3 {
   cursor: pointer;
   text-align: left;
   width: 100%;
+  text-decoration: none;
+  color: var(--text);
 }
 .plugin-card .icon {
   font-size: 2.5rem;
@@ -1142,5 +1144,521 @@ h3 {
   }
   .bar > span {
     transition: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   3 歳児向け UI（docs/05-ui-ux.md 5.9）
+   - 文字が読めなくても分かる: 大きな絵、少ない選択肢、声
+   - 触れた瞬間に反応、まちがえても責めない、正解は祝う
+   ══════════════════════════════════════════════════════════════ */
+
+/* 学習一覧: 「3さいから」は大きな絵のカード ─────────────── */
+.kids-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.kids-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 128px;
+  padding: 14px 8px 12px;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 800;
+  font-size: 1.05rem;
+  text-align: center;
+  transition: transform 0.06s ease;
+}
+.kids-card:active {
+  transform: scale(0.96);
+}
+.kids-card__icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  font-size: 2.6rem;
+  line-height: 1;
+}
+.kids-card__icon img {
+  width: 64px;
+  height: 64px;
+}
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 4px 0;
+  font-size: 1rem;
+  color: var(--text-muted);
+}
+.age-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  border: 2px solid #bbf7d0;
+  color: #166534;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.age-badge--older {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
+/* きょうの あそび（ホーム）──────────────────────────────── */
+.today-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  text-decoration: none;
+  color: var(--text);
+  min-height: 92px;
+}
+.today-card:active {
+  transform: scale(0.98);
+}
+.today-card__icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  font-size: 2.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.today-card__icon img {
+  width: 48px;
+  height: 48px;
+}
+.today-card__label {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--primary-strong);
+}
+.today-card__name {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+.today-card__hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.today-card__go {
+  margin-left: auto;
+  font-size: 1.6rem;
+}
+
+/* コース選択（kidsMode）: 星の数だけで分かる大きなボタン ─── */
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.level-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 108px;
+  padding: 12px 8px;
+  background: #fffbe6;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-weight: 800;
+  color: var(--text);
+  cursor: pointer;
+}
+.level-chip:active {
+  transform: scale(0.96);
+}
+.level-chip__stars {
+  font-size: 1.3rem;
+  letter-spacing: 2px;
+  line-height: 1;
+}
+.level-chip__icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+.level-chip__icon img {
+  width: 40px;
+  height: 40px;
+}
+.level-chip__label {
+  font-size: 0.9rem;
+  text-align: center;
+  line-height: 1.25;
+}
+.count-chip--big {
+  min-height: 64px;
+  font-size: 1.3rem;
+}
+
+/* 学習画面のヘッダ: 右上の保護者ボタン（.admin-fab）と重ならないよう余白 */
+.study-header {
+  padding-right: 48px;
+}
+.study-header h1 {
+  font-size: 1.3rem;
+  line-height: 1.25;
+}
+
+/* 学習プレイ画面のヘッダ: 星の進捗と音のトグル ───────────── */
+.icon-btn {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 0;
+}
+.icon-btn:active {
+  transform: translateY(1px);
+}
+.progress-dots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.progress-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fde68a;
+  border: 2px solid #fcd34d;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.progress-dot.is-done {
+  background: var(--good);
+  border-color: #15803d;
+}
+.progress-dot.is-current {
+  background: #fff;
+  border-color: var(--primary-strong);
+  transform: scale(1.25);
+}
+
+/* タップ式クイズ（@kakimon/plugin-preschool-shared）─────── */
+.kp-tapquiz,
+.kp-trace {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.kp-tapquiz__prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.kp-tapquiz__art {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 96px;
+  padding: 10px;
+  background: #fff;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+}
+.kp-tapquiz__art[hidden] {
+  display: none;
+}
+.kp-tapquiz__text-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+.kp-tapquiz__text {
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.3;
+  /* 分かち書きの空白でだけ折り返す（単語の途中で切らない） */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.kp-tapquiz__speak {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  background: #fff;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 0;
+}
+.kp-tapquiz__speak:active {
+  transform: translateY(1px);
+}
+.kp-tapquiz__choices {
+  display: grid;
+  grid-template-columns: repeat(var(--kp-cols, 3), 1fr);
+  gap: 10px;
+}
+.kp-tapquiz__choice {
+  display: grid;
+  place-items: center;
+  min-height: 112px;
+  padding: 10px 6px;
+  background: #fffbe6;
+  border: 3px solid var(--border);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: transform 0.08s ease, opacity 0.2s ease, background 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.kp-tapquiz__choices--xl .kp-tapquiz__choice {
+  min-height: 128px;
+}
+.kp-tapquiz__choice.is-pressed {
+  transform: scale(0.94);
+  background: #fef3c7;
+}
+.kp-tapquiz__choice:disabled {
+  cursor: default;
+}
+.kp-tapquiz__choice.is-wrong {
+  opacity: 0.35;
+  animation: kp-shake 0.45s ease;
+}
+.kp-tapquiz__choice.is-muted {
+  opacity: 0.35;
+}
+.kp-tapquiz__choice.is-correct {
+  background: #dcfce7;
+  border-color: var(--good);
+  animation: kp-pop 0.5s ease;
+}
+.kp-tapquiz__choice.is-hint {
+  animation: kp-hint-pulse 1.2s ease-in-out infinite;
+  border-color: var(--primary);
+}
+.kp-tapquiz__feedback {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-align: center;
+}
+.kp-tapquiz__feedback.is-correct {
+  color: var(--good);
+}
+.kp-tapquiz__feedback.is-wrong {
+  color: var(--primary-strong);
+  font-size: 1.05rem;
+}
+.kp-tapquiz__sparkle {
+  animation: kp-sparkle 0.8s ease infinite alternate;
+}
+@keyframes kp-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px) rotate(-2deg); }
+  40% { transform: translateX(7px) rotate(2deg); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+@keyframes kp-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+@keyframes kp-hint-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.0); transform: scale(1); }
+  50% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0.25); transform: scale(1.05); }
+}
+@keyframes kp-sparkle {
+  from { transform: scale(0.8) rotate(-10deg); opacity: 0.6; }
+  to { transform: scale(1.2) rotate(10deg); opacity: 1; }
+}
+
+/* いろ: 色の丸 */
+.kp-swatch {
+  display: block;
+  width: 78px;
+  height: 78px;
+  border-radius: 999px;
+  border: 3px solid rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.1);
+}
+.kp-swatch--outline {
+  border-color: #cbd5e1;
+}
+/* かたち */
+.kp-shape {
+  display: block;
+  width: 84px;
+  height: 84px;
+}
+.kp-shape svg {
+  width: 100%;
+  height: 100%;
+}
+/* かず: ならんだ絵 */
+.kp-count-group {
+  display: grid;
+  grid-template-columns: repeat(var(--kp-count-cols, 5), auto);
+  gap: 6px;
+  justify-content: center;
+}
+.kp-digit {
+  font-size: 3rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--accent);
+}
+/* ひらがな タッチ */
+.kp-kana {
+  font-size: 3.2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.kp-kana-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.kp-kana-hint__word {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+/* おおきい ちいさい / ながい たかい */
+.kp-size-slot {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 104px;
+}
+.kp-bar {
+  display: block;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid rgba(0, 0, 0, 0.15);
+}
+.kp-bar--v {
+  width: 22px;
+  height: auto;
+}
+
+/* せん なぞり（@kakimon/plugin-trace-line）─────────────── */
+.kp-trace__board {
+  background: #fff;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.kp-trace__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.kp-trace__guide {
+  fill: none;
+  stroke: #cbd5e1;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 0.5 4;
+}
+.kp-trace__trail {
+  fill: none;
+  stroke: #fb923c;
+  stroke-opacity: 0.85;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.kp-trace__chick,
+.kp-trace__goal {
+  pointer-events: none;
+}
+.kp-trace__chick.is-happy {
+  animation: kp-chick-hop 0.5s ease 2;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+@keyframes kp-chick-hop {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* 学習結果: ほし と モンスターの おどり ───────────────── */
+.result-stars {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  font-size: 2.6rem;
+  line-height: 1;
+  margin: 6px 0 2px;
+}
+.result-star {
+  opacity: 0.25;
+  filter: grayscale(1);
+  animation: kp-pop 0.5s ease both;
+}
+.result-star.is-on {
+  opacity: 1;
+  filter: none;
+}
+.result-monster {
+  display: inline-block;
+  animation: cheer-happy-jump 1.1s ease-in-out 2;
+}
+.coin-fly {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  animation: kp-pop 0.6s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kp-tapquiz__choice.is-wrong,
+  .kp-tapquiz__choice.is-correct,
+  .kp-tapquiz__choice.is-hint,
+  .kp-tapquiz__sparkle,
+  .kp-trace__chick.is-happy,
+  .result-star,
+  .result-monster,
+  .coin-fly {
+    animation: none;
   }
 }

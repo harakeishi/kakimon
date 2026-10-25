@@ -40,6 +40,11 @@ export interface PluginManifest {
   icon: IconSource;
   /** カテゴリ。UIのグルーピングに使う */
   category: "writing" | "reading" | "math" | "other";
+  /**
+   * 3 歳前後の「まだ字が読めない子」向けであることを示す。Host はコース選択を
+   * 星とアイコンだけの簡易版にし、学習一覧で「3さいから」に出す。
+   */
+  kidsMode?: boolean;
 }
 
 export interface SessionConfig {
@@ -253,10 +258,43 @@ exp    = floor( baseExp(difficulty)   × overallScore )
   `src/countryShapes.ts` に埋め込んでおり、実行時の依存はない。
 - スコア: 1 問正解 = 1.0、不正解 = 0。`overallScore` はその平均。
 
+### `@kakimon/plugin-preschool`（3 歳児向け・9 プラグイン）
+
+- 1 パッケージで複数の `ContentPlugin` を `preschoolPlugins` として export する
+  （registry 側で展開）。共通の「問いかけ → 大きな選択肢をタップ」エンジンは
+  `@kakimon/plugin-preschool-shared` の `createTapQuizSession` にあり、各
+  プラグインは「なにを出題するか」（`TapQuestion[]` を返す関数）だけを持つ。
+- マニフェストは全て `kidsMode: true`、`ageHint 3〜5`、`questionCounts [3, 5, 8]`。
+- 内訳（id は `io.kakimon.preschool.*`）:
+  `same` おなじもの さがし（見本と同じもの / なかまはずれ）、
+  `color` いろ（3 色 → 6 色 → 10 色 → ものの色）、
+  `shape` かたち（○△□ → ☆♡ → 7 種 → かたちの もの）、
+  `animal` どうぶつ（名前 / なきごえ）、`food` たべもの、`vehicle` のりもの、
+  `count` かず（1〜3 → 1〜5 → 1〜10 → おおい・すくない）、
+  `size` おおきい ちいさい（→ ながい・たかい）、
+  `hiragana` ひらがな タッチ（行ごと → ぜんぶ。絵のヒント付き）。
+- エンジンの挙動（docs/05-ui-ux.md 5.9 の原則）: 読み上げ、`pointerdown` での
+  押下表示、誤答は揺れて薄くなるだけ、2 回目の誤答で正解が光る、無操作 7 秒で
+  言い直し、固定 2 音の効果音、1 回目正解 1.0 / 2 回目 0.6 / ヒント後 0.3 のスコア。
+- `SessionConfig.options.sound`（Host が渡す）で読み上げ・効果音を止められる。
+
+### `@kakimon/plugin-trace-line`（せん なぞり）
+
+- `id="io.kakimon.preschool.trace"`, category `"writing"`, `kidsMode: true`。
+  文字を書く前の運筆（まっすぐ → まがる → ギザギザ・なみなみ → まる・ぐるぐる）。
+- 「ひよこを ごはんまで つれていこう」: 点線の道にそって指でなぞると ひよこが
+  指についてきて、ゴールで ごはんを食べる。
+- 判定は「道のサンプル点（48 点）のうち、指の軌跡から 9（viewBox 単位）以内を
+  通った割合」（coverage）だけ。ゴールに触れて coverage ≥ 0.45、または
+  coverage ≥ 0.85 で完了。途中で指が離れても続きからなぞれる（部分完了）。
+  2 回うまくいかないと ひよこが お手本で道を歩く。はみ出しは減点しない。
+
 ### 共通化
 
 3 つの書き取りプラグインは共通の「kakitori ラッパー」を共有する形にし、
-`packages/plugin-writing-shared/` に切り出すのが妥当。
+`packages/plugin-writing-shared/` に切り出すのが妥当。3 歳児向けのタップ式
+プラグインは `packages/plugin-preschool-shared/`（DOM ヘルパー・読み上げ・
+効果音・タップ式クイズエンジン）を共有する。
 
 `@kakimon/plugin-writing-shared` は source-only パッケージ（plugin-api と
 同方式）として作成済み。現状は「かきじゅんガイド」モードのオーバーレイ描画

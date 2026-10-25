@@ -1,6 +1,8 @@
 import type { ContentPlugin } from "@kakimon/plugin-api";
 import { validateManifest } from "@kakimon/plugin-api";
+import { preschoolPlugins } from "@kakimon/plugin-preschool";
 import flagQuizPlugin from "@kakimon/plugin-quiz-flag";
+import traceLinePlugin from "@kakimon/plugin-trace-line";
 import hiraganaPlugin from "@kakimon/plugin-writing-hiragana";
 import numberPlugin from "@kakimon/plugin-writing-number";
 
@@ -32,11 +34,19 @@ function buildRegistry(candidates: ContentPlugin[]): ContentPlugin[] {
   return accepted;
 }
 
+// 並び順 = 学習一覧の表示順（年齢順にやさしいものから）。
 export const plugins: readonly ContentPlugin[] = buildRegistry([
+  ...preschoolPlugins,
+  traceLinePlugin,
   hiraganaPlugin,
   numberPlugin,
   flagQuizPlugin,
 ]);
+
+/** 3 歳前後向け（manifest.kidsMode）のプラグインだけ。 */
+export const kidsPlugins: readonly ContentPlugin[] = plugins.filter(
+  (p) => p.manifest.kidsMode === true
+);
 
 export function findPlugin(id: string): ContentPlugin | undefined {
   return plugins.find((p) => p.manifest.id === id);
