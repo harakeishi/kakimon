@@ -41,6 +41,8 @@ export interface MonsterEquipped {
   head?: string;
   body?: string;
   accessory?: string;
+  /** てもち（手に持つアイテム）。古い保存データには無いので optional。 */
+  hand?: string;
 }
 
 export interface Monster {

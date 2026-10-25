@@ -2,14 +2,13 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   COSMETICS,
   SLOT_LABELS,
+  SLOT_ORDER,
   type EquipmentSlot,
 } from "../../domain/catalog/cosmetics";
 import { useGameStore } from "../../state/gameStore";
 import { countOf } from "../../domain/inventory";
 import { EmojiIcon } from "../../components/EmojiIcon";
 import { MonsterSprite } from "../../components/MonsterSprite";
-
-const SLOT_ORDER: EquipmentSlot[] = ["head", "accessory", "body"];
 
 export function ClosetScreen() {
   const navigate = useNavigate();

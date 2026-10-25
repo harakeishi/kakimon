@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FOODS } from "../../domain/catalog/foods";
+import {
+  FOODS,
+  FOOD_CATEGORY_LABELS,
+  FOOD_CATEGORY_ORDER,
+} from "../../domain/catalog/foods";
 import {
   COSMETICS,
   SLOT_LABELS,
-  type EquipmentSlot,
+  SLOT_ORDER,
 } from "../../domain/catalog/cosmetics";
 import {
   INTERIORS,
@@ -19,7 +23,6 @@ import { EmojiIcon } from "../../components/EmojiIcon";
 
 type Tab = "food" | "cosmetic" | "interior";
 
-const SLOT_ORDER: EquipmentSlot[] = ["head", "accessory", "body"];
 const CATEGORY_ORDER: InteriorCategory[] = ["wallpaper", "floor", "furniture"];
 
 export function ShopScreen() {
@@ -110,40 +113,55 @@ export function ShopScreen() {
       </div>
 
       {tab === "food" ? (
-        <div className="list">
-          {FOODS.map((food) => {
-            const owned = countOf(inventory, food.id, "food");
-            const canBuy = wallet.coins >= food.price;
+        <>
+          <p className="muted" style={{ margin: "0 4px" }}>
+            かった ごはんは ホームの「ごはんを あげる」から たべさせられるよ。
+          </p>
+          {FOOD_CATEGORY_ORDER.map((category) => {
+            const items = FOODS.filter((f) => f.category === category);
             return (
-              <div className="list-row" key={food.id}>
-                <div className="icon" aria-hidden>
-                  <EmojiIcon emoji={food.icon} size={36} alt="" />
+              <section key={category} style={{ marginTop: 4 }}>
+                <h3 style={{ margin: "8px 4px 6px", color: "var(--text-muted)" }}>
+                  {FOOD_CATEGORY_LABELS[category]}
+                </h3>
+                <div className="list">
+                  {items.map((food) => {
+                    const owned = countOf(inventory, food.id, "food");
+                    const canBuy = wallet.coins >= food.price;
+                    return (
+                      <div className="list-row" key={food.id}>
+                        <div className="icon" aria-hidden>
+                          <EmojiIcon emoji={food.icon} size={36} alt="" />
+                        </div>
+                        <div>
+                          <strong>{food.name}</strong>
+                          <div className="muted">
+                            {food.description}・ もちもの {owned}こ
+                          </div>
+                        </div>
+                        <button
+                          className="btn"
+                          disabled={!canBuy}
+                          onClick={() =>
+                            setConfirm({
+                              id: food.id,
+                              name: food.name,
+                              price: food.price,
+                              kind: "food",
+                            })
+                          }
+                        >
+                          <EmojiIcon emoji="💰" size={18} alt="" />
+                          <span style={{ marginLeft: 2 }}>{food.price}</span>
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div>
-                  <strong>{food.name}</strong>
-                  <div className="muted">
-                    {food.description}・ もちもの {owned}こ
-                  </div>
-                </div>
-                <button
-                  className="btn"
-                  disabled={!canBuy}
-                  onClick={() =>
-                    setConfirm({
-                      id: food.id,
-                      name: food.name,
-                      price: food.price,
-                      kind: "food",
-                    })
-                  }
-                >
-                  <EmojiIcon emoji="💰" size={18} alt="" />
-                  <span style={{ marginLeft: 2 }}>{food.price}</span>
-                </button>
-              </div>
+              </section>
             );
           })}
-        </div>
+        </>
       ) : tab === "cosmetic" ? (
         <>
           <p className="muted" style={{ margin: "0 4px" }}>

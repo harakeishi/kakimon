@@ -53,6 +53,7 @@ interface Monster {
     head?: string;
     body?: string;
     accessory?: string;
+    hand?: string;        // てもち（手に持つアイテム）
   };
   favoriteFoodIds: FoodId[];  // 好物。給餌で機嫌ボーナス
 }
@@ -107,11 +108,19 @@ interface EquipmentItem {
   description: string;
   icon: IconSource;
   price: number;
-  slot: "head" | "body" | "accessory";
+  slot: "head" | "body" | "accessory" | "hand";
   statBonus: Partial<Monster["stats"]>;
   appearance: AppearanceLayer;  // 描画用
 }
 ```
+
+実装（`apps/web/src/domain/catalog/cosmetics.ts`）では `appearance` を `wear` として持ち、
+「モンスターのどの部位に・どの大きさで重ねるか」（`zone: headTop | eyes | headSide |
+neck | body | hand | back` と倍率・微調整オフセット）を宣言する。`slot` は「同時に
+1 つしか着けられない枠」で、`wear.zone` とは独立（ネクタイは `slot:"body"` だが
+`zone:"neck"`）。段階ごとの部位座標は `components/spriteLayout.ts` の
+`STAGE_ANCHORS` に持ち、絵文字ごとの描画範囲（`CONTENT_BBOX`）は
+`scripts/measure-emoji-bbox.mjs` で計測する。
 
 ### InteriorItem（へやのもよう）
 

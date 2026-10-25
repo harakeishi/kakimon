@@ -1,21 +1,13 @@
 import { useState } from "react";
 
-// scripts/sync-emoji.mjs と同期しているコードポイント一覧。
+import codepointManifest from "../assets/emoji-codepoints.json";
+
+// scripts/sync-emoji.mjs が public/emoji/ に同期しているコードポイント一覧
+// （src/assets/emoji-codepoints.json を両者で共有）。
 // これ以外を渡された場合は <img> ロード失敗 → テキストフォールバック。
-const AVAILABLE = new Set<string>([
-  "1F95A", "1F423", "1F98E", "1F432", "1F409", "1F338",
-  "1F34E", "1F359", "1F370",
-  "1F4DA", "1F6CD", "1F917", "1F389", "2B50", "1F31F", "1F4B0",
-  // きせかえ（装備）
-  "1F9E2", "1F452", "1F3A9", "1F393", "1F451", // あたま
-  "1F453", "1F576", "1F380", "1F48D", "1F484", // アクセサリ
-  "1F455", "1F454", "1F9E3", "1F457", "1F97C", "1F9F8", // ふく
-  // へやのもようがえ（もよう・かべがみ・ゆか・かぐ）
-  "1F6CB", // へやタブ
-  "1F7E8", "1F7E6", "1F30C", // かべがみ
-  "1F7EB", "1F331", "1F7E9", "1F7E5", // ゆか
-  "1FAB4", "1FA91", "1F570", "1FA94", "1F388", "1F335", // かぐ
-]);
+const AVAILABLE = new Set<string>(
+  Object.keys(codepointManifest).filter((k) => !k.startsWith("_"))
+);
 
 function emojiToCodepoint(emoji: string): string | null {
   const cp = emoji.codePointAt(0);

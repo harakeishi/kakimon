@@ -113,6 +113,16 @@ export function HomeScreen() {
     return { wallpaper, floor, furniture };
   }, [room]);
 
+  // もっている ごはんだけ並べる（カタログが大きいので、全部は出さない）。
+  const ownedFoods = useMemo(
+    () =>
+      FOODS.map((food) => ({
+        food,
+        owned: countOf(inventory, food.id, "food"),
+      })).filter((f) => f.owned > 0),
+    [inventory]
+  );
+
   const careNeeded = useMemo(() => {
     if (!monster) return false;
     if (isEgg(monster)) return false;
@@ -296,9 +306,13 @@ export function HomeScreen() {
             <p className="muted" style={{ marginTop: 0 }}>
               もちもの から ごはんを えらぼう
             </p>
+            {ownedFoods.length === 0 && (
+              <p className="muted" style={{ margin: "4px 0 0" }}>
+                ごはんが ないよ。ショップで かってこよう！
+              </p>
+            )}
             <div className="list">
-              {FOODS.map((food) => {
-                const owned = countOf(inventory, food.id, "food");
+              {ownedFoods.map(({ food, owned }) => {
                 return (
                   <div className="list-row" key={food.id}>
                     <div className="icon" aria-hidden>
