@@ -11,6 +11,29 @@ import { MonsterSprite } from "../../components/MonsterSprite";
 import { PetReactionFx } from "../../components/PetReactionFx";
 import { pickPetReaction, type PetReaction } from "../../domain/petReactions";
 import { NameMonsterModal } from "./NameMonsterModal";
+import { kidsPlugins } from "../../plugin-host/registry";
+
+/**
+ * 「きょうの あそび」: 3 歳向けプラグインを日替わりで 1 つ選ぶ。
+ * ホームから 1 タップでいちばんやさしいコースが始まる（トドさんすうの
+ * 「きょうのぼうけん」のような、短くて迷わない日課の入口）。
+ */
+function todaysPlugin() {
+  if (kidsPlugins.length === 0) return null;
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((now.getTime() - start.getTime()) / 86_400_000);
+  return kidsPlugins[dayOfYear % kidsPlugins.length] ?? null;
+}
+
+function PluginIcon({ icon, size }: { icon: string; size: number }) {
+  const cp = icon.codePointAt(0) ?? 0;
+  return cp > 0x2000 ? (
+    <EmojiIcon emoji={icon} size={size} alt="" />
+  ) : (
+    <span aria-hidden>{icon}</span>
+  );
+}
 
 const LIFE_STATE_LABELS: Record<Monster["lifeState"], string> = {
   healthy: "げんき",
@@ -132,6 +155,8 @@ export function HomeScreen() {
       monster.lifeState === "dying"
     );
   }, [monster]);
+
+  const today = useMemo(todaysPlugin, []);
 
   if (!monster) return null;
   const egg = isEgg(monster);
@@ -255,6 +280,27 @@ export function HomeScreen() {
               bar={moodBar}
             />
           </section>
+
+          {/* きょうの あそび: 1 タップで始まる 3 歳向けの短い日課 */}
+          {!dying && today && (
+            <Link
+              to={`/study/${encodeURIComponent(today.manifest.id)}?auto=1`}
+              className="today-card"
+              aria-label={`きょうの あそび: ${today.manifest.name}`}
+            >
+              <span className="today-card__icon">
+                <PluginIcon icon={today.manifest.icon} size={48} />
+              </span>
+              <span>
+                <div className="today-card__label">きょうの あそび</div>
+                <div className="today-card__name">{today.manifest.name}</div>
+                <div className="today-card__hint">タッチで すぐ はじまるよ</div>
+              </span>
+              <span className="today-card__go" aria-hidden>
+                ▶
+              </span>
+            </Link>
+          )}
 
           {/* dying のときは「べんきょう」より「おせわ」優先 */}
           <section className={`actions-grid${dying ? "" : " actions-grid--4"}`}>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { findPlugin } from "../../plugin-host/registry";
 import type {
   DifficultyOption,
@@ -12,6 +12,48 @@ import {
   MonsterCheerOverlay,
   type CheerReaction,
 } from "../../components/MonsterCheerOverlay";
+import { EmojiIcon } from "../../components/EmojiIcon";
+import { loadSoundEnabled, saveSoundEnabled } from "../../infra/sound";
+
+/** manifest.icon（絵文字 or 短い文字）を表示する。 */
+function PluginIcon({ icon, size }: { icon: string; size: number }) {
+  const cp = icon.codePointAt(0) ?? 0;
+  return cp > 0x2000 ? (
+    <EmojiIcon emoji={icon} size={size} alt="" />
+  ) : (
+    <span aria-hidden>{icon}</span>
+  );
+}
+
+/**
+ * 進捗を「ほしの つぶ」で見せる。プラグインの reportProgress の label は
+ * "n / total" 形式なので、それを解釈して点を並べる。形式が違えば文字のまま出す。
+ */
+function ProgressDots({ label, ratio }: { label: string; ratio: number }) {
+  const m = /^(\d+)\s*\/\s*(\d+)$/.exec(label.trim());
+  if (!m) return <strong>{label}</strong>;
+  const current = Number(m[1]);
+  const total = Math.min(Number(m[2]), 20);
+  return (
+    <div
+      className="progress-dots"
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={total}
+      aria-valuenow={Math.round(ratio * total)}
+      aria-label={`${current} / ${total}`}
+    >
+      {Array.from({ length: total }, (_, i) => (
+        <span
+          key={i}
+          className={`progress-dot${
+            i + 1 < current ? " is-done" : i + 1 === current ? " is-current" : ""
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
 
 // プラグインがハングした場合の watchdog。
 // docs/03-plugin-architecture.md「呼ばれない場合のタイムアウトは Host 側で扱う」
@@ -96,6 +138,10 @@ interface FinalizeArgs {
 
 export function StudyPlayScreen() {
   const { pluginId = "" } = useParams();
+  const [searchParams] = useSearchParams();
+  // ?auto=1: ホームの「きょうの あそび」から来たとき。コース選択を飛ばして
+  // いちばんやさしいコースで すぐ始める（3 歳児は画面を 1 つでも減らしたい）。
+  const autoStart = searchParams.get("auto") === "1";
   const navigate = useNavigate();
   const plugin = useMemo(
     () => findPlugin(decodeURIComponent(pluginId)),
@@ -112,6 +158,8 @@ export function StudyPlayScreen() {
   const [lenient, setLenient] = useState<boolean>(loadLenient);
   const [strokeGuide, setStrokeGuide] = useState<boolean>(loadStrokeGuide);
   const [progressLabel, setProgressLabel] = useState("");
+  const [progressRatio, setProgressRatio] = useState(0);
+  const [sound, setSound] = useState<boolean>(loadSoundEnabled);
   const targetRef = useRef<HTMLDivElement | null>(null);
   const handleRef = useRef<{ dispose(): void } | null>(null);
   const [showQuit, setShowQuit] = useState(false);
@@ -155,6 +203,7 @@ export function StudyPlayScreen() {
       },
       reportProgress: (p) => {
         setProgressLabel(p.label ?? "");
+        setProgressRatio(p.ratio);
       },
       reportOutcome: (o) => {
         reactionNonce.current += 1;
@@ -178,7 +227,8 @@ export function StudyPlayScreen() {
           questionCount,
           // lenient: やさしいはんてい。プラグインがなぞり判定の許容度を上げる。
           // strokeGuide: かきじゅんガイド。いま書く 1 画の始点・方向を示す。
-          options: { lenient, strokeGuide },
+          // sound: 読み上げ・効果音を出してよいか。
+          options: { lenient, strokeGuide, sound },
         },
         ctx
       );
@@ -215,6 +265,15 @@ export function StudyPlayScreen() {
     // navigate / applyReward は安定 ref。finalizeSession は下の関数宣言で巻き上げ。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difficulty, plugin]);
+
+  // ?auto=1 のときは、いちばんやさしいコースを自動で選ぶ。
+  useEffect(() => {
+    if (!autoStart || !plugin || difficulty) return;
+    const easiest = [...plugin.manifest.difficulties].sort(
+      (a, b) => a.level - b.level
+    )[0];
+    if (easiest) setDifficulty(easiest);
+  }, [autoStart, plugin, difficulty]);
 
   // 難易度未選択ならまずプラグイン選択画面
   if (!plugin) {
@@ -282,42 +341,103 @@ export function StudyPlayScreen() {
     }
     const levels = [...byLevel.keys()].sort((a, b) => a - b);
     // 「やさしいはんてい」「かきじゅんガイド」はなぞり書き専用の設定。
-    // クイズ系のプラグインでは意味を持たないので出さない。
-    const isWriting = plugin.manifest.category === "writing";
+    // クイズ系・3 歳児向けのプラグインでは意味を持たないので出さない。
+    const kids = plugin.manifest.kidsMode === true;
+    const isWriting = plugin.manifest.category === "writing" && !kids;
+    const soundToggle = (
+      <button
+        type="button"
+        className="icon-btn"
+        aria-label={sound ? "おとを けす" : "おとを だす"}
+        aria-pressed={sound}
+        onClick={() => {
+          const next = !sound;
+          setSound(next);
+          saveSoundEnabled(next);
+        }}
+      >
+        {sound ? "🔊" : "🔇"}
+      </button>
+    );
+    const countPicker =
+      questionCounts && questionCounts.length > 0 ? (
+        <section className="card" style={{ padding: 12 }}>
+          <h3 style={{ margin: "0 0 8px" }}>なんもん やる？</h3>
+          <div className="count-picker" role="group" aria-label="もんだいすう">
+            {questionCounts.map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`count-chip${kids ? " count-chip--big" : ""}${
+                  n === questionCount ? " is-selected" : ""
+                }`}
+                aria-pressed={n === questionCount}
+                onClick={() => {
+                  setQuestionCount(n);
+                  saveQuestionCount(n);
+                }}
+              >
+                {n}もん
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null;
+
+    if (kids) {
+      // 3 歳児向け: 文字を読まなくても分かるよう、星の数とアイコンの大きなボタン。
+      // タッチした瞬間に始まる（「はじめる」ボタンを挟まない）。
+      return (
+        <>
+          <header className="row study-header">
+            <button className="btn btn--ghost" onClick={() => navigate(-1)}>
+              ← もどる
+            </button>
+            <h1 style={{ margin: 0, marginLeft: 12 }}>{plugin.manifest.name}</h1>
+            <div className="spacer" />
+            {soundToggle}
+          </header>
+          <p className="muted" style={{ margin: "0 4px" }}>
+            {plugin.manifest.description}。ボタンを タッチすると はじまるよ
+          </p>
+          {countPicker}
+          <div className="level-grid">
+            {plugin.manifest.difficulties.map((d) => (
+              <button
+                key={d.key}
+                type="button"
+                className="level-chip"
+                onClick={() => setDifficulty(d)}
+                aria-label={`${d.label}（レベル ${d.level}）`}
+              >
+                <span className="level-chip__stars" aria-hidden>
+                  {"⭐".repeat(d.level)}
+                </span>
+                <span className="level-chip__icon" aria-hidden>
+                  <PluginIcon icon={plugin.manifest.icon} size={40} />
+                </span>
+                <span className="level-chip__label">{d.label}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      );
+    }
+
     return (
       <>
-        <header className="row">
+        <header className="row study-header">
           <button className="btn btn--ghost" onClick={() => navigate(-1)}>
             ← もどる
           </button>
           <h1 style={{ margin: 0, marginLeft: 12 }}>{plugin.manifest.name}</h1>
+          <div className="spacer" />
+          {soundToggle}
         </header>
         <p className="muted" style={{ margin: "0 4px" }}>
           コースを えらんでね
         </p>
-        {questionCounts && questionCounts.length > 0 && (
-          <section className="card" style={{ padding: 12 }}>
-            <h3 style={{ margin: "0 0 8px" }}>なんもん やる？</h3>
-            <div className="count-picker" role="group" aria-label="もんだいすう">
-              {questionCounts.map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  className={`count-chip${
-                    n === questionCount ? " is-selected" : ""
-                  }`}
-                  aria-pressed={n === questionCount}
-                  onClick={() => {
-                    setQuestionCount(n);
-                    saveQuestionCount(n);
-                  }}
-                >
-                  {n}もん
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
+        {countPicker}
         {isWriting && (
           <button
             type="button"
@@ -366,7 +486,9 @@ export function StudyPlayScreen() {
         )}
         {levels.map((lv) => (
           <section key={lv} className="card" style={{ padding: 12 }}>
-            <h3 style={{ margin: "0 0 8px" }}>レベル {lv}</h3>
+            <h3 style={{ margin: "0 0 8px" }}>
+              レベル {lv} <span aria-hidden>{"⭐".repeat(lv)}</span>
+            </h3>
             <div className="difficulty-grid">
               {byLevel.get(lv)!.map((d) => (
                 <button
@@ -375,7 +497,7 @@ export function StudyPlayScreen() {
                   onClick={() => setDifficulty(d)}
                 >
                   <span className="difficulty-chip__icon" aria-hidden>
-                    {plugin.manifest.icon}
+                    <PluginIcon icon={plugin.manifest.icon} size={28} />
                   </span>
                   <span className="difficulty-chip__label">{d.label}</span>
                 </button>
@@ -389,12 +511,16 @@ export function StudyPlayScreen() {
 
   return (
     <>
-      <header className="row">
-        <button className="btn btn--ghost" onClick={() => setShowQuit(true)}>
-          やめる
+      <header className="row study-header">
+        <button
+          className="btn btn--ghost"
+          onClick={() => setShowQuit(true)}
+          aria-label="やめる"
+        >
+          ✋ やめる
         </button>
         <div className="spacer" />
-        <strong>{progressLabel}</strong>
+        <ProgressDots label={progressLabel} ratio={progressRatio} />
       </header>
 
       <section className="card" style={{ padding: 12 }}>
@@ -408,10 +534,8 @@ export function StudyPlayScreen() {
       {showQuit && (
         <div className="modal-mask" onClick={() => setShowQuit(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>ほんとうに やめる？</h2>
-            <p className="muted">
-              いまの がんばりは きえちゃうよ
-            </p>
+            <h2>おしまいに する？</h2>
+            <p className="muted">また いつでも あそべるよ</p>
             <div className="row" style={{ marginTop: 16, gap: 10 }}>
               <button
                 className="btn btn--ghost btn--block"

@@ -32,11 +32,24 @@ export interface PluginManifest {
    * SessionConfig.questionCount として渡る。省略時は Host の既定値のみを使う。
    */
   questionCounts?: number[];
+  /**
+   * 3 歳前後の「まだ字が読めない子」向けコンテンツであることを示す。
+   * Host はこれを見て、コース選択を絵と星だけの簡易版にし、学習一覧で
+   * 「3さいから」の枠に優先表示し、読み上げ（Web Speech）を前提にした
+   * 導線にする。省略時は false。
+   */
+  kidsMode?: boolean;
 }
 
 export interface SessionConfig {
   difficulty: string;
   questionCount?: number;
+  /**
+   * プラグイン固有の任意設定。Host が共通で渡すキー:
+   * - sound: boolean   読み上げ・効果音を出してよいか（保護者が OFF にできる）
+   * - lenient: boolean やさしいはんてい（書き取り系）
+   * - strokeGuide: boolean かきじゅんガイド（書き取り系）
+   */
   options?: Record<string, unknown>;
 }
 
