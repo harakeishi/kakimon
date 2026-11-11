@@ -10,3 +10,9 @@ export {
   type StrokeGuideCharData,
   type StrokeGuideOptions,
 } from "./strokeGuide";
+
+export {
+  createWritingQuestionVoice,
+  numberToJapaneseReading,
+  type WritingQuestionVoice,
+} from "./questionSpeech";
