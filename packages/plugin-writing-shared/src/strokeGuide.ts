@@ -234,6 +234,9 @@ function createCar(): SVGGElement {
 
 export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
   const size = options.size;
+  // 2〜3 桁の書き取りでは各マスが小さくなるので装飾サイズも縮小する。
+  // 番号は小さすぎると読めないため下限を設ける。
+  const guideScale = Math.max(0.65, Math.min(1, size / 200));
   const padding = options.padding ?? DEFAULT_PADDING;
   const scale = (size - 2 * padding) / HANZI_PRESCALED_SIZE;
   // hanzi-writer の translate Y 成分 (= height - yOffset)。
@@ -330,8 +333,8 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
    */
   function headingAt(m: PathMetrics, len: number): number {
     if (m.total <= 0) return 0;
-    const from = Math.max(0, len - CAR_HEADING_SAMPLE);
-    const to = Math.min(m.total, from + 2 * CAR_HEADING_SAMPLE);
+    const from = Math.max(0, len - CAR_HEADING_SAMPLE * guideScale);
+    const to = Math.min(m.total, from + 2 * CAR_HEADING_SAMPLE * guideScale);
     const a = pointAtLength(m, from);
     const b = pointAtLength(m, to);
     if (a.x === b.x && a.y === b.y) return pointAtLength(m, len).angle;
@@ -348,7 +351,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
     const flip = Math.abs(angle) > 90 ? " scale(1 -1)" : "";
     carEl.setAttribute(
       "transform",
-      `translate(${round2(x)} ${round2(y)}) rotate(${round2(angle)})${flip}`
+      `translate(${round2(x)} ${round2(y)}) rotate(${round2(angle)}) scale(${round2(guideScale)})${flip}`
     );
   }
 
@@ -380,7 +383,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
     if (endAngle === null) return null;
     const count = Math.min(
       ARROW_MAX,
-      Math.max(1, Math.round(m.total / ARROW_SPACING))
+      Math.max(1, Math.round(m.total / (ARROW_SPACING * guideScale)))
     );
     const cycle =
       (count - 1) * ARROW_BLINK_STEP +
@@ -398,7 +401,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
         d: "M11 0 L-5 7.5 L-1.5 0 L-5 -7.5 Z",
         fill: ARROW_COLOR,
         "fill-opacity": reduceMotion ? "0.9" : String(ARROW_DIM_OPACITY),
-        transform: `translate(${round2(at.x)} ${round2(at.y)}) rotate(${round2(angle)})`,
+        transform: `translate(${round2(at.x)} ${round2(at.y)}) rotate(${round2(angle)}) scale(${round2(guideScale)})`,
       });
       if (!reduceMotion) {
         // 暗い → ぱっと明るく → 消える、を i * STEP ずつ遅らせて繰り返す。
@@ -430,11 +433,13 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
     start: [number, number],
     placed: Array<[number, number]>
   ): [number, number] {
-    const radius = 13;
+    const radius = 13 * guideScale;
     const edge = radius + 1;
+    const d = 24 * guideScale;
+    const f = 32 * guideScale;
     const offsets: Array<[number, number]> = [
-      [-24, -24], [24, -24], [-24, 24], [24, 24],
-      [0, -32], [0, 32], [-32, 0], [32, 0],
+      [-d, -d], [d, -d], [-d, d], [d, d],
+      [0, -f], [0, f], [-f, 0], [f, 0],
     ];
     const candidates: Array<[number, number]> = offsets.map(([dx, dy]) => [
       Math.max(edge, Math.min(size - edge, start[0] + dx)),
@@ -449,7 +454,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
             )
           );
     return (
-      candidates.find((point) => clearance(point) >= 2 * radius + 3) ??
+      candidates.find((point) => clearance(point) >= 2 * radius + 3 * guideScale) ??
       candidates.reduce((best, point) =>
         clearance(point) > clearance(best) ? point : best
       )
@@ -481,7 +486,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
           x1: String(cx), y1: String(cy),
           x2: String(start[0]), y2: String(start[1]),
           stroke: active ? "#047857" : "#94a3b8",
-          "stroke-width": active ? "2" : "1.5",
+          "stroke-width": String((active ? 2 : 1.5) * guideScale),
           "stroke-linecap": "round",
         })
       );
@@ -489,10 +494,10 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
         svgEl("circle", {
           cx: String(cx),
           cy: String(cy),
-          r: "13",
+          r: String(13 * guideScale),
           fill: active ? "#047857" : "#ffffff",
           stroke: active ? "#065f46" : "#64748b",
-          "stroke-width": active ? "2.5" : "1.5",
+          "stroke-width": String((active ? 2.5 : 1.5) * guideScale),
         })
       );
       const label = svgEl("text", {
@@ -501,7 +506,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
         "text-anchor": "middle",
         "dominant-baseline": "central",
         "font-family": "system-ui, sans-serif",
-        "font-size": "15",
+        "font-size": String(15 * guideScale),
         "font-weight": "800",
         fill: active ? "#ffffff" : "#334155",
       });
@@ -533,7 +538,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
           fill: "none",
           stroke: GUIDE_LINE_COLOR,
           "stroke-opacity": GUIDE_LINE_OPACITY,
-          "stroke-width": String(GUIDE_LINE_WIDTH),
+          "stroke-width": String(GUIDE_LINE_WIDTH * guideScale),
           "stroke-linecap": "round",
           "stroke-linejoin": "round",
         })
@@ -553,10 +558,10 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
         class: "ksg-start",
         cx: String(start[0]),
         cy: String(start[1]),
-        r: "7",
+        r: String(7 * guideScale),
         fill: "none",
         stroke: START_RING_COLOR,
-        "stroke-width": "3",
+        "stroke-width": String(3 * guideScale),
         "stroke-opacity": "0.85",
       })
     );
