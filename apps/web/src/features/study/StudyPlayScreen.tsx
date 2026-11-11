@@ -72,17 +72,17 @@ function saveLenient(value: boolean): void {
   }
 }
 
-// 「かきじゅんガイド」モードの保存キー。書き順がわからない子向けに、いま書く
-// べき 1 画の始点・方向をオーバーレイで示す（始点のくるまが指に追随し、
-// 進む向きの矢印が順に点滅する）。プラグインへは
-// SessionConfig.options.strokeGuide として渡る。設定はデバイスに残す（localStorage）。
+// 「かきじゅんガイド」はひらがな・数字の書き取りで初期 ON。
+// 全画の番号と、いま書く画の始点・矢印を表示する。
+// 保存値がある場合はその選択を尊重する（明示的な "0" のみ OFF）。
 const STROKE_GUIDE_STORAGE_KEY = "kakimon.strokeGuide";
 
 function loadStrokeGuide(): boolean {
   try {
-    return localStorage.getItem(STROKE_GUIDE_STORAGE_KEY) === "1";
+    return localStorage.getItem(STROKE_GUIDE_STORAGE_KEY) !== "0";
   } catch {
-    return false;
+    // ストレージのない環境でも、初回はガイドありで始める。
+    return true;
   }
 }
 
@@ -467,7 +467,7 @@ export function StudyPlayScreen() {
             <span className="mode-toggle__text">
               <span className="mode-toggle__title">かきじゅん ガイド</span>
               <span className="mode-toggle__hint">
-                くるまと やじるしで かきはじめと むきを おしえるよ
+                1・2・3の じゅんばんと やじるしで かく むきを おしえるよ
               </span>
             </span>
             <span className="mode-toggle__switch" aria-hidden>
