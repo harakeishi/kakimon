@@ -234,6 +234,9 @@ function createCar(): SVGGElement {
 
 export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
   const size = options.size;
+  // 2〜3 桁の書き取りでは各マスが小さくなるので装飾サイズも縮小する。
+  // 番号は小さすぎると読めないため下限を設ける。
+  const guideScale = Math.max(0.65, Math.min(1, size / 200));
   const padding = options.padding ?? DEFAULT_PADDING;
   const scale = (size - 2 * padding) / HANZI_PRESCALED_SIZE;
   // hanzi-writer の translate Y 成分 (= height - yOffset)。
@@ -257,12 +260,15 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
     typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // 現在の論理画の中央線を表示座標の点列にして返す。ガイド対象が無ければ null。
-  function currentPoints(): Array<[number, number]> | null {
-    if (!charData) return null;
+  function logicalStrokeCount(): number {
+    return charData ? (strokeGroups?.length ?? charData.medians.length) : 0;
+  }
+
+  // 論理画ごとの中央線を表示座標に変換する。strokeGroups の後続データ画は
+  // なぞり判定用の補助なので、ガイドには先頭の median のみを使う。
+  function pointsForStroke(index: number): Array<[number, number]> | null {
+    if (!charData || index < 0 || index >= logicalStrokeCount()) return null;
     const medians = charData.medians;
-    const logicalCount = strokeGroups?.length ?? medians.length;
-    if (strokeIndex < 0 || strokeIndex >= logicalCount) return null;
     // strokeGroups がある文字 (例: あ の 3 画目 = データ画 [2,3]) では、
     // グループ「先頭」のデータ画の median だけを使う。
     //
@@ -276,7 +282,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
     //   の始点 [-170,458]) や別ルートの変種を含む。
     // そのため連結するとガイド線がキャンバス外へ飛ぶジグザグになる。
     // ガイドには先頭 median のみが正しい。
-    const dataIndex = strokeGroups?.[strokeIndex]?.[0] ?? strokeIndex;
+    const dataIndex = strokeGroups?.[index]?.[0] ?? index;
     const median = medians[dataIndex];
     if (!median) return null;
     const pts: Array<[number, number]> = [];
@@ -327,8 +333,8 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
    */
   function headingAt(m: PathMetrics, len: number): number {
     if (m.total <= 0) return 0;
-    const from = Math.max(0, len - CAR_HEADING_SAMPLE);
-    const to = Math.min(m.total, from + 2 * CAR_HEADING_SAMPLE);
+    const from = Math.max(0, len - CAR_HEADING_SAMPLE * guideScale);
+    const to = Math.min(m.total, from + 2 * CAR_HEADING_SAMPLE * guideScale);
     const a = pointAtLength(m, from);
     const b = pointAtLength(m, to);
     if (a.x === b.x && a.y === b.y) return pointAtLength(m, len).angle;
@@ -345,7 +351,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
     const flip = Math.abs(angle) > 90 ? " scale(1 -1)" : "";
     carEl.setAttribute(
       "transform",
-      `translate(${round2(x)} ${round2(y)}) rotate(${round2(angle)})${flip}`
+      `translate(${round2(x)} ${round2(y)}) rotate(${round2(angle)}) scale(${round2(guideScale)})${flip}`
     );
   }
 
@@ -377,7 +383,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
     if (endAngle === null) return null;
     const count = Math.min(
       ARROW_MAX,
-      Math.max(1, Math.round(m.total / ARROW_SPACING))
+      Math.max(1, Math.round(m.total / (ARROW_SPACING * guideScale)))
     );
     const cycle =
       (count - 1) * ARROW_BLINK_STEP +
@@ -395,7 +401,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
         d: "M11 0 L-5 7.5 L-1.5 0 L-5 -7.5 Z",
         fill: ARROW_COLOR,
         "fill-opacity": reduceMotion ? "0.9" : String(ARROW_DIM_OPACITY),
-        transform: `translate(${round2(at.x)} ${round2(at.y)}) rotate(${round2(angle)})`,
+        transform: `translate(${round2(at.x)} ${round2(at.y)}) rotate(${round2(angle)}) scale(${round2(guideScale)})`,
       });
       if (!reduceMotion) {
         // 暗い → ぱっと明るく → 消える、を i * STEP ずつ遅らせて繰り返す。
@@ -417,6 +423,99 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
     return group;
   }
 
+
+  /**
+   * 番号バッジを始点から少し離して置き、短い線で始点と結ぶ。
+   * 文字の外側やほかの番号と重ならない候補を優先する。
+   * 完了した画も同じ座標を使い、書いている途中で番号が飛び回らないようにする。
+   */
+  function markerPosition(
+    start: [number, number],
+    placed: Array<[number, number]>
+  ): [number, number] {
+    const radius = 13 * guideScale;
+    const edge = radius + 1;
+    const d = 24 * guideScale;
+    const f = 32 * guideScale;
+    const offsets: Array<[number, number]> = [
+      [-d, -d], [d, -d], [-d, d], [d, d],
+      [0, -f], [0, f], [-f, 0], [f, 0],
+    ];
+    const candidates: Array<[number, number]> = offsets.map(([dx, dy]) => [
+      Math.max(edge, Math.min(size - edge, start[0] + dx)),
+      Math.max(edge, Math.min(size - edge, start[1] + dy)),
+    ]);
+    const clearance = (point: [number, number]): number =>
+      placed.length === 0
+        ? Infinity
+        : Math.min(
+            ...placed.map((other) =>
+              Math.hypot(point[0] - other[0], point[1] - other[1])
+            )
+          );
+    return (
+      candidates.find((point) => clearance(point) >= 2 * radius + 3 * guideScale) ??
+      candidates.reduce((best, point) =>
+        clearance(point) > clearance(best) ? point : best
+      )
+    );
+  }
+
+  /**
+   * すべての論理画の始点へ「1、2、3…」を付ける。
+   * 現在書く画だけ強調し、終わった画は薄くする。実線・矢印とは別レイヤなので
+   * なぞり入力を妨げず、「次はどこから」が常に分かる。
+   */
+  function renderStrokeNumbers(): void {
+    if (!overlay) return;
+    const placed: Array<[number, number]> = [];
+    for (let index = 0; index < logicalStrokeCount(); index++) {
+      const pts = pointsForStroke(index);
+      if (!pts || pts.length === 0) continue;
+      const start = pts[0]!;
+      const [cx, cy] = markerPosition(start, placed);
+      placed.push([cx, cy]);
+      const active = index === strokeIndex;
+      const completed = index < strokeIndex;
+      const marker = svgEl("g", {
+        class: active ? "ksg-number ksg-number--current" : "ksg-number",
+        opacity: completed ? "0.3" : "1",
+      });
+      marker.appendChild(
+        svgEl("line", {
+          x1: String(cx), y1: String(cy),
+          x2: String(start[0]), y2: String(start[1]),
+          stroke: active ? "#047857" : "#94a3b8",
+          "stroke-width": String((active ? 2 : 1.5) * guideScale),
+          "stroke-linecap": "round",
+        })
+      );
+      marker.appendChild(
+        svgEl("circle", {
+          cx: String(cx),
+          cy: String(cy),
+          r: String(13 * guideScale),
+          fill: active ? "#047857" : "#ffffff",
+          stroke: active ? "#065f46" : "#64748b",
+          "stroke-width": String((active ? 2.5 : 1.5) * guideScale),
+        })
+      );
+      const label = svgEl("text", {
+        x: String(cx),
+        y: String(cy + 0.5),
+        "text-anchor": "middle",
+        "dominant-baseline": "central",
+        "font-family": "system-ui, sans-serif",
+        "font-size": String(15 * guideScale),
+        "font-weight": "800",
+        fill: active ? "#ffffff" : "#334155",
+      });
+      label.textContent = String(index + 1);
+      marker.appendChild(label);
+      overlay.appendChild(marker);
+    }
+  }
+
   function render(): void {
     if (destroyed || !overlay) return;
     overlay.replaceChildren();
@@ -424,7 +523,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
     metrics = null;
     activePointerId = null;
     if (hidden) return;
-    const pts = currentPoints();
+    const pts = pointsForStroke(strokeIndex);
     if (!pts) return;
     const m = measure(pts);
     metrics = m;
@@ -439,7 +538,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
           fill: "none",
           stroke: GUIDE_LINE_COLOR,
           "stroke-opacity": GUIDE_LINE_OPACITY,
-          "stroke-width": String(GUIDE_LINE_WIDTH),
+          "stroke-width": String(GUIDE_LINE_WIDTH * guideScale),
           "stroke-linecap": "round",
           "stroke-linejoin": "round",
         })
@@ -449,6 +548,9 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
       if (arrows) overlay.appendChild(arrows);
     }
 
+    // 画数の順番は全画分を表示。いま書く位置だけ色を変えて強調する。
+    renderStrokeNumbers();
+
     // 始点マーカー (ここから書く)。くるまが走り出した後も「どこから始まるか」
     // が残るよう、塗りつぶしではなくリングにする。
     overlay.appendChild(
@@ -456,10 +558,10 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
         class: "ksg-start",
         cx: String(start[0]),
         cy: String(start[1]),
-        r: "7",
+        r: String(7 * guideScale),
         fill: "none",
         stroke: START_RING_COLOR,
-        "stroke-width": "3",
+        "stroke-width": String(3 * guideScale),
         "stroke-opacity": "0.85",
       })
     );
