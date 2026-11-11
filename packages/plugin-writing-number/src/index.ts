@@ -462,13 +462,18 @@ function startSession(
     if (disposed || settled) return;
     if (currentIndex < questions.length) {
       const ch = questions[currentIndex]!;
-      outcomes.push({
-        questionId: `${ch}@${currentIndex}`,
-        correct: false,
-        score: 0,
-        elapsedMs: Date.now() - questionStartedAt,
-        meta: { character: ch, skipped: true },
-      });
+      const questionId = `${ch}@${currentIndex}`;
+      // 書き終えて次の問題を待つ 600ms の間に「つぎへ」が押されても
+      // 同じ問題を二重記録しない。
+      if (!outcomes.some((o) => o.questionId === questionId)) {
+        outcomes.push({
+          questionId,
+          correct: false,
+          score: 0,
+          elapsedMs: Date.now() - questionStartedAt,
+          meta: { character: ch, skipped: true },
+        });
+      }
     }
     clearPendingTimer();
     unmountCurrent();
