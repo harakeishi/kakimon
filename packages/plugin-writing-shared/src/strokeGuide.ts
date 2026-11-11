@@ -257,12 +257,15 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
     typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // 現在の論理画の中央線を表示座標の点列にして返す。ガイド対象が無ければ null。
-  function currentPoints(): Array<[number, number]> | null {
-    if (!charData) return null;
+  function logicalStrokeCount(): number {
+    return charData ? (strokeGroups?.length ?? charData.medians.length) : 0;
+  }
+
+  // 論理画ごとの中央線を表示座標に変換する。strokeGroups の後続データ画は
+  // なぞり判定用の補助なので、ガイドには先頭の median のみを使う。
+  function pointsForStroke(index: number): Array<[number, number]> | null {
+    if (!charData || index < 0 || index >= logicalStrokeCount()) return null;
     const medians = charData.medians;
-    const logicalCount = strokeGroups?.length ?? medians.length;
-    if (strokeIndex < 0 || strokeIndex >= logicalCount) return null;
     // strokeGroups がある文字 (例: あ の 3 画目 = データ画 [2,3]) では、
     // グループ「先頭」のデータ画の median だけを使う。
     //
@@ -276,7 +279,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
     //   の始点 [-170,458]) や別ルートの変種を含む。
     // そのため連結するとガイド線がキャンバス外へ飛ぶジグザグになる。
     // ガイドには先頭 median のみが正しい。
-    const dataIndex = strokeGroups?.[strokeIndex]?.[0] ?? strokeIndex;
+    const dataIndex = strokeGroups?.[index]?.[0] ?? index;
     const median = medians[dataIndex];
     if (!median) return null;
     const pts: Array<[number, number]> = [];
@@ -417,6 +420,97 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
     return group;
   }
 
+
+  /**
+   * 番号バッジを始点から少し離して置き、短い線で始点と結ぶ。
+   * 文字の外側やほかの番号と重ならない候補を優先する。
+   * 完了した画も同じ座標を使い、書いている途中で番号が飛び回らないようにする。
+   */
+  function markerPosition(
+    start: [number, number],
+    placed: Array<[number, number]>
+  ): [number, number] {
+    const radius = 13;
+    const edge = radius + 1;
+    const offsets: Array<[number, number]> = [
+      [-24, -24], [24, -24], [-24, 24], [24, 24],
+      [0, -32], [0, 32], [-32, 0], [32, 0],
+    ];
+    const candidates: Array<[number, number]> = offsets.map(([dx, dy]) => [
+      Math.max(edge, Math.min(size - edge, start[0] + dx)),
+      Math.max(edge, Math.min(size - edge, start[1] + dy)),
+    ]);
+    const clearance = (point: [number, number]): number =>
+      placed.length === 0
+        ? Infinity
+        : Math.min(
+            ...placed.map((other) =>
+              Math.hypot(point[0] - other[0], point[1] - other[1])
+            )
+          );
+    return (
+      candidates.find((point) => clearance(point) >= 2 * radius + 3) ??
+      candidates.reduce((best, point) =>
+        clearance(point) > clearance(best) ? point : best
+      )
+    );
+  }
+
+  /**
+   * すべての論理画の始点へ「1、2、3…」を付ける。
+   * 現在書く画だけ強調し、終わった画は薄くする。実線・矢印とは別レイヤなので
+   * なぞり入力を妨げず、「次はどこから」が常に分かる。
+   */
+  function renderStrokeNumbers(): void {
+    if (!overlay) return;
+    const placed: Array<[number, number]> = [];
+    for (let index = 0; index < logicalStrokeCount(); index++) {
+      const pts = pointsForStroke(index);
+      if (!pts || pts.length === 0) continue;
+      const start = pts[0]!;
+      const [cx, cy] = markerPosition(start, placed);
+      placed.push([cx, cy]);
+      const active = index === strokeIndex;
+      const completed = index < strokeIndex;
+      const marker = svgEl("g", {
+        class: active ? "ksg-number ksg-number--current" : "ksg-number",
+        opacity: completed ? "0.3" : "1",
+      });
+      marker.appendChild(
+        svgEl("line", {
+          x1: String(cx), y1: String(cy),
+          x2: String(start[0]), y2: String(start[1]),
+          stroke: active ? "#047857" : "#94a3b8",
+          "stroke-width": active ? "2" : "1.5",
+          "stroke-linecap": "round",
+        })
+      );
+      marker.appendChild(
+        svgEl("circle", {
+          cx: String(cx),
+          cy: String(cy),
+          r: "13",
+          fill: active ? "#047857" : "#ffffff",
+          stroke: active ? "#065f46" : "#64748b",
+          "stroke-width": active ? "2.5" : "1.5",
+        })
+      );
+      const label = svgEl("text", {
+        x: String(cx),
+        y: String(cy + 0.5),
+        "text-anchor": "middle",
+        "dominant-baseline": "central",
+        "font-family": "system-ui, sans-serif",
+        "font-size": "15",
+        "font-weight": "800",
+        fill: active ? "#ffffff" : "#334155",
+      });
+      label.textContent = String(index + 1);
+      marker.appendChild(label);
+      overlay.appendChild(marker);
+    }
+  }
+
   function render(): void {
     if (destroyed || !overlay) return;
     overlay.replaceChildren();
@@ -424,7 +518,7 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
     metrics = null;
     activePointerId = null;
     if (hidden) return;
-    const pts = currentPoints();
+    const pts = pointsForStroke(strokeIndex);
     if (!pts) return;
     const m = measure(pts);
     metrics = m;
@@ -448,6 +542,9 @@ export function createStrokeGuide(options: StrokeGuideOptions): StrokeGuide {
       const arrows = renderArrows(m);
       if (arrows) overlay.appendChild(arrows);
     }
+
+    // 画数の順番は全画分を表示。いま書く位置だけ色を変えて強調する。
+    renderStrokeNumbers();
 
     // 始点マーカー (ここから書く)。くるまが走り出した後も「どこから始まるか」
     // が残るよう、塗りつぶしではなくリングにする。
