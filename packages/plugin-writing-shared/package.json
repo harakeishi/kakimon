@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "@k1low/kakitori": "0.15.0",
-    "hanzi-writer": "3.7.3"
+    "hanzi-writer": "3.7.3",
+    "@kakimon/plugin-preschool-shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "5.6.3"
