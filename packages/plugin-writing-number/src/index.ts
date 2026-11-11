@@ -1,4 +1,4 @@
-// 数字（0〜9）の書き取りプラグイン。
+// 数字（0〜100）の書き取りプラグイン。
 // kakitori の char.create() で SVG ストロークを描画し、ユーザがなぞる。
 
 import type {
@@ -92,12 +92,17 @@ const POOLS: Record<string, readonly string[]> = {
   hard: ["7", "8", "9"],
 };
 const ALL: readonly string[] = [...DIGITS];
+// 2 けたをひとつの問題として出題する。100 は 3 けたなので別コースにする。
+const TWO_DIGITS: readonly string[] = Array.from(
+  { length: 90 },
+  (_, i) => String(i + 10)
+);
 
 const manifest: PluginManifest = {
   id: "io.kakimon.writing.number",
   name: "すうじの かきとり",
-  description: "0 から 9 までの すうじを かこう",
-  version: "0.1.0",
+  description: "0 から 100 までの すうじを かこう",
+  version: "0.2.0",
   ageHint: { min: 5, max: 8 },
   category: "writing",
   // 0-9 を表す絵文字は実装環境差が大きいので、シンプルに「1」を使う
@@ -108,16 +113,23 @@ const manifest: PluginManifest = {
     { key: "digits-hard", label: "7・8・9", level: 1 },
     { key: "digits-all-ordered", label: "0 〜 9 じゅんばん", level: 2 },
     { key: "digits-all-random", label: "0 〜 9 ランダム", level: 2 },
+    { key: "digits-two-digit", label: "10 〜 99（2けた）", level: 2 },
+    { key: "digits-100", label: "100 に ちょうせん", level: 3 },
   ],
 };
 
 function pickQuestions(difficulty: string, count: number): string[] {
+  if (difficulty === "digits-100") return count > 0 ? ["100"] : [];
   if (difficulty === "digits-all-ordered") {
     // 順番固定。count に合わせて先頭から切り出す。
     return ALL.slice(0, Math.min(count, ALL.length));
   }
   const source =
-    difficulty === "digits-all-random" ? ALL : POOLS[difficulty] ?? ALL;
+    difficulty === "digits-two-digit"
+      ? TWO_DIGITS
+      : difficulty === "digits-all-random"
+        ? ALL
+        : POOLS[difficulty] ?? ALL;
   const arr = [...source];
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -162,9 +174,15 @@ function startSession(
 
   const charHost = document.createElement("div");
   charHost.className = "kp-hiragana__char";
-  charHost.style.width = "300px";
-  charHost.style.height = "300px";
+  // 2〜3文字の数字を、画面幅に収まる正方形セルとして横一列に表示する。
+  charHost.style.width = "100%";
+  charHost.style.maxWidth = "300px";
+  charHost.style.display = "flex";
+  charHost.style.justifyContent = "center";
+  charHost.style.alignItems = "center";
+  charHost.style.gap = "6px";
   charHost.style.margin = "0 auto";
+  charHost.setAttribute("role", "group");
   target.appendChild(charHost);
 
   const controls = document.createElement("div");
@@ -177,8 +195,12 @@ function startSession(
   target.appendChild(controls);
 
   let currentIndex = 0;
-  let currentChar: ReturnType<typeof char.create> | null = null;
-  let currentGuide: StrokeGuide | null = null;
+  // 複数桁はそれぞれ char.create し、左から順番に start() する。
+  // 完了済みの数字の描画を残して「25」として見えるようにする。
+  let mountedChars: Array<ReturnType<typeof char.create>> = [];
+  let mountedGuides: Array<StrokeGuide | null> = [];
+  let digitHosts: HTMLElement[] = [];
+  let activeDigitIndex = -1;
   let disposed = false;
   let settled = false;
   let questionStartedAt = Date.now();
@@ -230,6 +252,37 @@ function startSession(
     }
   }
 
+  function unmountCurrent() {
+    // ガイドを先に外してから char インスタンスを破棄する。
+    for (const guide of mountedGuides) guide?.destroy();
+    for (const instance of mountedChars) {
+      try {
+        instance.destroy();
+      } catch {
+        // ignore: マウント途中で失敗している可能性
+      }
+    }
+    mountedGuides = [];
+    mountedChars = [];
+    digitHosts = [];
+    activeDigitIndex = -1;
+    charHost.replaceChildren();
+  }
+
+  function activateDigit(index: number) {
+    if (disposed || settled || index >= mountedChars.length) return;
+    activeDigitIndex = index;
+    digitHosts.forEach((host, i) => {
+      // 未完成の桁には触れられない。完成した桁の筆跡はそのまま残す。
+      host.style.pointerEvents = i === index ? "auto" : "none";
+      host.style.opacity = i > index ? "0.6" : "1";
+      host.style.outline = i === index ? "3px solid #34d399" : "none";
+      host.setAttribute("aria-label", `${i + 1}けため`);
+    });
+    mountedChars[index]!.start();
+    mountedGuides[index]?.attach(digitHosts[index]!);
+  }
+
   function mountCurrent() {
     if (disposed) return;
     if (currentIndex >= questions.length) {
@@ -239,109 +292,158 @@ function startSession(
     updateProgress();
     questionStartedAt = Date.now();
 
-    const ch = questions[currentIndex]!;
+    const number = questions[currentIndex]!;
+    const digits = [...number];
     const myIndex = currentIndex;
-    // かきじゅんガイド。ローダをラップして文字データ (medians / strokeGroups)
-    // を捕捉し、mount 後にオーバーレイを重ねる。OFF 時は一切何も作らない。
-    const guide = strokeGuide ? createStrokeGuide({ size: 300 }) : null;
-    currentGuide = guide;
-    const loaders = wrapLoadersForGuide(guide, {
-      charDataLoader,
-      configLoader,
-    });
+    const cellGap = 6;
+    // 小さいスマホでも横に 2〜3 マス並べられるよう、描画とガイドのサイズを統一。
+    const availableWidth = charHost.clientWidth || 300;
+    const cellSize = Math.floor(
+      (Math.min(300, availableWidth) - cellGap * (digits.length - 1)) /
+        digits.length
+    );
+    charHost.style.height = `${cellSize}px`;
+    charHost.setAttribute("aria-label", `${number}を かこう`);
+
+    const scores: Array<{
+      matched: boolean;
+      score: number;
+      mistakes: number;
+      attempts: number;
+    } | undefined> = new Array(digits.length);
+    unmountCurrent();
+
     try {
-      const instance = char.create(ch, {
-        charDataLoader: loaders.charDataLoader,
-        configLoader: loaders.configLoader,
-        ...(lenient ? LENIENT_CHAR_OPTS : {}),
-      });
-      currentChar = instance;
-      instance.mount(charHost, {
-        size: 300,
-        showOutline: true,
-        showCharacter: false,
-        retainStrokes: true,
-        drawingColor: "#2563eb",
-        outlineColor: "#cbd5e1",
-        highlightColor: "#fbbf24",
-        ...(lenient ? LENIENT_MOUNT_OPTS : {}),
-        // 1 画正解するたびに、ガイドを次の画へ進める。
-        // data.strokeNum は論理画インデックス (0 始まり、strokeGroups 反映済み)。
-        onCorrectStroke: (data) => {
-          if (disposed || settled) return;
-          if (myIndex !== currentIndex) return;
-          guide?.setStroke(data.strokeNum + 1);
-        },
-        // 1 画ごとの判定が NG だった瞬間に、モンスターへ「はげまし」を依頼する。
-        // onComplete は（無制限リトライのため）基本 matched:true で終わるので、
-        // 失敗時の応援はこの per-stroke コールバックで出す。
-        onMistake: (data) => {
-          if (disposed || settled) return;
-          if (myIndex !== currentIndex) return;
-          try {
-            ctx.reportReaction?.({
-              correct: false,
-              meta: { character: ch, strokeNum: data.strokeNum },
-            });
-          } catch (e) {
-            console.error(
-              "[plugin-writing-number] reportReaction threw:",
-              e
-            );
-          }
-        },
-        onComplete: (data) => {
-          if (disposed || settled) return;
-          if (myIndex !== currentIndex) return;
-          // 書き終わったのでガイドは消す。
-          guide?.hide();
-          consecutiveLoadFailures = 0;
-          // やさしいモードではミス 1 回あたりの減点を緩める（0.1 → 0.04）。
-          const mistakePenalty = lenient ? 0.04 : 0.1;
-          const score = data.matched
-            ? Math.max(0, 1 - data.totalMistakes * mistakePenalty)
-            : 0.3;
-          const outcome: QuestionOutcome = {
-            questionId: `${ch}@${myIndex}`,
-            correct: data.matched,
-            score,
-            elapsedMs: Date.now() - questionStartedAt,
-            meta: {
-              character: ch,
-              totalMistakes: data.totalMistakes,
+      digits.forEach((digit, index) => {
+        const host = document.createElement("div");
+        host.style.width = `${cellSize}px`;
+        host.style.height = `${cellSize}px`;
+        host.style.flex = `0 0 ${cellSize}px`;
+        host.style.position = "relative";
+        host.style.borderRadius = "8px";
+        host.style.pointerEvents = "none";
+        host.style.touchAction = "none";
+        charHost.appendChild(host);
+        digitHosts.push(host);
+
+        // 既存の「かきじゅんガイド」を各桁へ適用。現在の桁のみ表示する。
+        const guide = strokeGuide ? createStrokeGuide({ size: cellSize }) : null;
+        mountedGuides.push(guide);
+        const loaders = wrapLoadersForGuide(guide, {
+          charDataLoader,
+          configLoader,
+        });
+        const instance = char.create(digit, {
+          charDataLoader: loaders.charDataLoader,
+          configLoader: loaders.configLoader,
+          ...(lenient ? LENIENT_CHAR_OPTS : {}),
+        });
+        mountedChars.push(instance);
+        instance.mount(host, {
+          size: cellSize,
+          showOutline: true,
+          showCharacter: false,
+          retainStrokes: true,
+          drawingColor: "#2563eb",
+          outlineColor: "#cbd5e1",
+          highlightColor: "#fbbf24",
+          ...(lenient ? LENIENT_MOUNT_OPTS : {}),
+          onCorrectStroke: (data) => {
+            if (disposed || settled || myIndex !== currentIndex) return;
+            if (activeDigitIndex !== index) return;
+            guide?.setStroke(data.strokeNum + 1);
+          },
+          onMistake: (data) => {
+            if (disposed || settled || myIndex !== currentIndex) return;
+            if (activeDigitIndex !== index) return;
+            try {
+              ctx.reportReaction?.({
+                correct: false,
+                meta: {
+                  character: number,
+                  digit,
+                  digitIndex: index,
+                  strokeNum: data.strokeNum,
+                },
+              });
+            } catch (e) {
+              console.error("[plugin-writing-number] reportReaction threw:", e);
+            }
+          },
+          onComplete: (data) => {
+            if (disposed || settled || myIndex !== currentIndex) return;
+            if (activeDigitIndex !== index || scores[index]) return;
+            guide?.hide();
+            const penalty = lenient ? 0.04 : 0.1;
+            scores[index] = {
+              matched: data.matched,
+              score: data.matched
+                ? Math.max(0, 1 - data.totalMistakes * penalty)
+                : 0.3,
+              mistakes: data.totalMistakes,
               attempts: data.attempts,
-            },
-          };
-          outcomes.push(outcome);
-          // Host にリアルタイム通知（モンスターの応援演出用）。
-          try {
-            ctx.reportOutcome?.(outcome);
-          } catch (e) {
-            console.error("[plugin-writing-number] reportOutcome threw:", e);
-          }
-          clearPendingTimer();
-          pendingTimer = window.setTimeout(() => {
-            pendingTimer = null;
-            if (disposed) return;
-            unmountCurrent();
-            currentIndex++;
-            mountCurrent();
-          }, 600);
-        },
+            };
+            host.style.pointerEvents = "none";
+
+            if (index + 1 < digits.length) {
+              // 数字の左から右へ。完了した桁は消さずに次の桁を開始する。
+              clearPendingTimer();
+              pendingTimer = window.setTimeout(() => {
+                pendingTimer = null;
+                if (disposed || settled || myIndex !== currentIndex) return;
+                activateDigit(index + 1);
+              }, 160);
+              return;
+            }
+
+            consecutiveLoadFailures = 0;
+            const completedScores = scores.filter(
+              (s): s is NonNullable<typeof s> => s !== undefined
+            );
+            const totalMistakes = completedScores.reduce(
+              (sum, s) => sum + s.mistakes, 0
+            );
+            const outcome: QuestionOutcome = {
+              questionId: `${number}@${myIndex}`,
+              correct: completedScores.every((s) => s.matched),
+              score: completedScores.reduce((sum, s) => sum + s.score, 0) /
+                digits.length,
+              elapsedMs: Date.now() - questionStartedAt,
+              meta: {
+                character: number,
+                totalMistakes,
+                attempts: completedScores.reduce(
+                  (sum, s) => sum + s.attempts, 0
+                ),
+                digitCount: digits.length,
+              },
+            };
+            outcomes.push(outcome);
+            try {
+              ctx.reportOutcome?.(outcome);
+            } catch (e) {
+              console.error("[plugin-writing-number] reportOutcome threw:", e);
+            }
+            clearPendingTimer();
+            pendingTimer = window.setTimeout(() => {
+              pendingTimer = null;
+              if (disposed || settled || myIndex !== currentIndex) return;
+              unmountCurrent();
+              currentIndex++;
+              mountCurrent();
+            }, 600);
+          },
+        });
       });
-      instance.start();
-      // mount() が charHost 内に描画レイヤを作った後にオーバーレイを重ねる。
-      guide?.attach(charHost);
+      activateDigit(0);
     } catch (err) {
-      guide?.destroy();
-      if (currentGuide === guide) currentGuide = null;
-      const elapsed = Date.now() - questionStartedAt;
+      unmountCurrent();
       outcomes.push({
-        questionId: `${ch}@${myIndex}`,
+        questionId: `${number}@${myIndex}`,
         correct: false,
         score: 0,
-        elapsedMs: elapsed,
-        meta: { character: ch, error: String(err) },
+        elapsedMs: Date.now() - questionStartedAt,
+        meta: { character: number, error: String(err) },
       });
       consecutiveLoadFailures++;
       if (consecutiveLoadFailures >= MAX_CONSECUTIVE_FAILURES) {
@@ -354,22 +456,6 @@ function startSession(
       currentIndex++;
       mountCurrent();
     }
-  }
-
-  function unmountCurrent() {
-    if (currentGuide) {
-      currentGuide.destroy();
-      currentGuide = null;
-    }
-    if (currentChar) {
-      try {
-        currentChar.destroy();
-      } catch {
-        // ignore
-      }
-      currentChar = null;
-    }
-    charHost.replaceChildren();
   }
 
   function onSkipClick() {
