@@ -58,7 +58,10 @@ export function createWritingQuestionVoice(
 
   function say(): void {
     if (destroyed || !currentText) return;
-    speak(currentText, { rate: 0.88, pitch: 1.1 });
+    // 幼児向けに少しゆっくり、声の高さを変えずに発話する。
+    // 短い1文字・数字でも、文末として自然に区切れるよう句点を付ける。
+    // 実際の速度・声質は端末の日本語音声エンジンによって多少異なる。
+    speak(`${currentText}。`, { rate: 0.84, pitch: 1.0 });
   }
 
   button.addEventListener("click", say);
