@@ -6,24 +6,7 @@ import {
   stopSpeaking,
 } from "@kakimon/plugin-preschool-shared";
 
-// 数字をそのまま TTS に渡すと「1」が「ワン」などになる環境があるので、
-// 学習用の日本語の読みを明示する。4 は「よん」、7 は「なな」、9 は「きゅう」。
-const ONES = [
-  "ぜろ", "いち", "に", "さん", "よん",
-  "ご", "ろく", "なな", "はち", "きゅう",
-] as const;
-
-export function numberToJapaneseReading(value: string): string {
-  if (!/^(0|[1-9]\d{0,2})$/.test(value)) return value;
-  const n = Number(value);
-  if (n > 100) return value;
-  if (n === 100) return "ひゃく";
-  if (n < 10) return ONES[n]!;
-  const tens = Math.floor(n / 10);
-  const ones = n % 10;
-  const prefix = tens === 1 ? "" : ONES[tens]!;
-  return `${prefix}じゅう${ones === 0 ? "" : ONES[ones]!}`;
-}
+export { numberToJapaneseReading } from "./numberReading";
 
 export interface WritingQuestionVoice {
   /** 次の問題が表示された時に読み上げる。自動再生は音声設定に従う。 */
