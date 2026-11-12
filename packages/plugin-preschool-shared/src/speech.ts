@@ -6,35 +6,59 @@
 // 最初の 1 問は鳴らないかもしれないが、問いかけ横の 🔊 ボタン（ユーザ操作）で
 // いつでも聞き直せるようにしている。
 
-// 端末やブラウザによって日本語音声の品質は違う。音声名に「Natural」等が
-// 明示されているものを優先し、なければ使える日本語音声にフォールバックする。
-// 特定の高品質音声が必ず存在するわけではないので、音源ファイルや通信は不要。
-function voicePreference(voice: SpeechSynthesisVoice): number {
-  const name = voice.name.toLowerCase();
-  let score = 0;
-  if (/natural|neural|premium|enhanced|high.quality|高品質/.test(name)) {
-    score += 100;
-  }
-  if (/siri|nanami|masaru|kyoko|o-ren|hattori|google 日本語|google japanese/.test(name)) {
-    score += 30;
-  }
-  if (voice.lang.toLowerCase() === "ja-jp") score += 10;
-  if (voice.localService) score += 2;
-  return score;
-}
+let cachedVoice: SpeechSynthesisVoice | null | undefined;
 
 function pickVoice(): SpeechSynthesisVoice | null {
+  if (cachedVoice !== undefined) return cachedVoice;
   try {
-    // iOS などは音声一覧を非同期で読み込むため、以前選んだ音声を固定せず、
-    // 再生のたびに候補を再評価する（「もういちど」で改善することもある）。
     const voices = window.speechSynthesis?.getVoices() ?? [];
     const ja = voices.filter((v) => v.lang?.toLowerCase().startsWith("ja"));
-    if (ja.length === 0) return null;
-    return ja.reduce((best, voice) =>
-      voicePreference(voice) > voicePreference(best) ? voice : best
-    );
+    // 子供向けに自然な声を優先（端末依存。無ければ最初の日本語音声）。
+    const preferred =
+      ja.find((v) => /kyoko|o-ren|hattori|日本語|google 日本語/i.test(v.name)) ??
+      ja[0] ??
+      null;
+    // 音声一覧が非同期で後から揃う端末がある（voiceschanged）。日本語音声が
+    // 見つかったときだけキャッシュし、見つからないうちは毎回引き直す
+    // （getVoices は軽い）。
+    if (preferred) cachedVoice = preferred;
+    return preferred;
   } catch {
     return null;
+  }
+}
+
+// 書き取り問題向け。品質名だけで選ぶとオンラインの音声を優先してしまい、
+// PWA のオフライン利用を壊す可能性があるため、端末内の日本語音声を先に選ぶ。
+// 高品質のローカル音声が見つからなければ、利用可能な候補にフォールバック。
+// 端末ごとに音声一覧の読み込みが遅れるので毎回選び直す。
+function pickNaturalVoice(): SpeechSynthesisVoice | null {
+  try {
+    const japanese = window.speechSynthesis.getVoices().filter(
+      (voice) => voice.lang.toLowerCase().startsWith("ja")
+    );
+    if (japanese.length === 0) return pickVoice();
+    const local = japanese.filter((voice) => voice.localService);
+    const candidates = local.length > 0 ? local : japanese;
+
+    function quality(voice: SpeechSynthesisVoice): number {
+      const name = voice.name.toLowerCase();
+      let score = 0;
+      if (/natural|neural|premium|enhanced|high.quality|高品質/.test(name)) {
+        score += 100;
+      }
+      if (/siri|nanami|masaru|kyoko|o-ren|hattori|google 日本語|google japanese/.test(name)) {
+        score += 30;
+      }
+      if (voice.lang.toLowerCase() === "ja-jp") score += 10;
+      return score;
+    }
+
+    return candidates.reduce((best, voice) =>
+      quality(voice) > quality(best) ? voice : best
+    );
+  } catch {
+    return pickVoice();
   }
 }
 
@@ -51,6 +75,8 @@ export interface SpeakOptions {
   interrupt?: boolean;
   rate?: number;
   pitch?: number;
+  /** 自然な声の候補を優先。書き取り専用（既存のクイズには影響しない）。 */
+  naturalVoice?: boolean;
 }
 
 /** テキストを日本語で読み上げる。失敗しても例外は投げない。 */
@@ -63,7 +89,7 @@ export function speak(text: string, opts: SpeakOptions = {}): void {
     u.lang = "ja-JP";
     u.rate = opts.rate ?? 0.95;
     u.pitch = opts.pitch ?? 1.15;
-    const voice = pickVoice();
+    const voice = opts.naturalVoice ? pickNaturalVoice() : pickVoice();
     if (voice) u.voice = voice;
     synth.speak(u);
   } catch {
