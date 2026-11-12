@@ -173,6 +173,9 @@ importers:
       '@k1low/kakitori':
         specifier: 0.15.0
         version: 0.15.0(hanzi-writer@3.7.3)
+      '@kakimon/plugin-preschool-shared':
+        specifier: workspace:*
+        version: link:../plugin-preschool-shared
       hanzi-writer:
         specifier: 3.7.3
         version: 3.7.3

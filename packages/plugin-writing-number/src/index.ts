@@ -17,6 +17,8 @@ import type {
 import type { StrokeGuide } from "@kakimon/plugin-writing-shared";
 import {
   createStrokeGuide,
+  createWritingQuestionVoice,
+  numberToJapaneseReading,
   wrapLoadersForGuide,
 } from "@kakimon/plugin-writing-shared";
 
@@ -170,6 +172,12 @@ function startSession(
   const progressLabel = document.createElement("div");
   progressLabel.className = "kp-hiragana__progress";
   header.appendChild(progressLabel);
+  // 問題の表示時に読み上げ、🔊 からいつでも聞き直せるようにする。
+  // 音声 OFF なら自動再生しない（手動での聞き直しは可能）。
+  const questionVoice = createWritingQuestionVoice(
+    header,
+    config.options?.sound !== false
+  );
   target.appendChild(header);
 
   const charHost = document.createElement("div");
@@ -253,6 +261,7 @@ function startSession(
   }
 
   function unmountCurrent() {
+    questionVoice.stop();
     // ガイドを先に外してから char インスタンスを破棄する。
     for (const guide of mountedGuides) guide?.destroy();
     for (const instance of mountedChars) {
@@ -436,6 +445,8 @@ function startSession(
         });
       });
       activateDigit(0);
+      // 二桁・三桁は桁ごとではなく「にじゅうご」のように数字全体を読む。
+      questionVoice.announce(numberToJapaneseReading(number));
     } catch (err) {
       unmountCurrent();
       outcomes.push({
@@ -500,6 +511,7 @@ function startSession(
       clearPendingTimer();
       skipBtn.removeEventListener("click", onSkipClick);
       unmountCurrent();
+      questionVoice.destroy();
       target.replaceChildren();
     },
   };

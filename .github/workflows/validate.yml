@@ -22,5 +22,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Typecheck
         run: pnpm typecheck
+      - name: Numeric Japanese reading tests
+        run: node --experimental-strip-types --test packages/plugin-writing-shared/tests/numberReading.test.mjs
       - name: Build
         run: pnpm build

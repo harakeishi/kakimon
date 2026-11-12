@@ -28,6 +28,40 @@ function pickVoice(): SpeechSynthesisVoice | null {
   }
 }
 
+// 書き取り問題向け。品質名だけで選ぶとオンラインの音声を優先してしまい、
+// PWA のオフライン利用を壊す可能性があるため、端末内の日本語音声を先に選ぶ。
+// 高品質のローカル音声が見つからなければ、利用可能な候補にフォールバック。
+// 端末ごとに音声一覧の読み込みが遅れるので毎回選び直す。
+function pickNaturalVoice(): SpeechSynthesisVoice | null {
+  try {
+    const japanese = window.speechSynthesis.getVoices().filter(
+      (voice) => voice.lang.toLowerCase().startsWith("ja")
+    );
+    if (japanese.length === 0) return pickVoice();
+    const local = japanese.filter((voice) => voice.localService);
+    const candidates = local.length > 0 ? local : japanese;
+
+    function quality(voice: SpeechSynthesisVoice): number {
+      const name = voice.name.toLowerCase();
+      let score = 0;
+      if (/natural|neural|premium|enhanced|high.quality|高品質/.test(name)) {
+        score += 100;
+      }
+      if (/siri|nanami|masaru|kyoko|o-ren|hattori|google 日本語|google japanese/.test(name)) {
+        score += 30;
+      }
+      if (voice.lang.toLowerCase() === "ja-jp") score += 10;
+      return score;
+    }
+
+    return candidates.reduce((best, voice) =>
+      quality(voice) > quality(best) ? voice : best
+    );
+  } catch {
+    return pickVoice();
+  }
+}
+
 export function speechAvailable(): boolean {
   return (
     typeof window !== "undefined" &&
@@ -41,6 +75,8 @@ export interface SpeakOptions {
   interrupt?: boolean;
   rate?: number;
   pitch?: number;
+  /** 自然な声の候補を優先。書き取り専用（既存のクイズには影響しない）。 */
+  naturalVoice?: boolean;
 }
 
 /** テキストを日本語で読み上げる。失敗しても例外は投げない。 */
@@ -53,7 +89,7 @@ export function speak(text: string, opts: SpeakOptions = {}): void {
     u.lang = "ja-JP";
     u.rate = opts.rate ?? 0.95;
     u.pitch = opts.pitch ?? 1.15;
-    const voice = pickVoice();
+    const voice = opts.naturalVoice ? pickNaturalVoice() : pickVoice();
     if (voice) u.voice = voice;
     synth.speak(u);
   } catch {

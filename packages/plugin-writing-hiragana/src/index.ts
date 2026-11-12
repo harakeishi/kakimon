@@ -15,6 +15,7 @@ import { validateManifest } from "@kakimon/plugin-api";
 import type { StrokeGuide } from "@kakimon/plugin-writing-shared";
 import {
   createStrokeGuide,
+  createWritingQuestionVoice,
   wrapLoadersForGuide,
 } from "@kakimon/plugin-writing-shared";
 
@@ -191,6 +192,12 @@ function startSession(
   const progressLabel = document.createElement("div");
   progressLabel.className = "kp-hiragana__progress";
   header.appendChild(progressLabel);
+  // 問題の表示時に読み上げ、🔊 からいつでも聞き直せるようにする。
+  // 音声 OFF なら自動再生しない（手動での聞き直しは可能）。
+  const questionVoice = createWritingQuestionVoice(
+    header,
+    config.options?.sound !== false
+  );
   target.appendChild(header);
 
   const charHost = document.createElement("div");
@@ -373,6 +380,8 @@ function startSession(
       instance.start();
       // mount() が charHost 内に描画レイヤを作った後にオーバーレイを重ねる。
       guide?.attach(charHost);
+      // ひらがなの各問題を「い」「は」のように一文字ずつ読み上げる。
+      questionVoice.announce(ch);
     } catch (err) {
       guide?.destroy();
       if (currentGuide === guide) currentGuide = null;
@@ -401,6 +410,7 @@ function startSession(
   }
 
   function unmountCurrent() {
+    questionVoice.stop();
     if (currentGuide) {
       currentGuide.destroy();
       currentGuide = null;
@@ -457,6 +467,7 @@ function startSession(
       clearPendingTimer();
       skipBtn.removeEventListener("click", onSkipClick);
       unmountCurrent();
+      questionVoice.destroy();
       target.innerHTML = "";
     },
   };
